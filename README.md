@@ -3,38 +3,7 @@
 A turn-based airline management game in the spirit of Railroad Tycoon and Aerobiz.
 Free, open source, browser-based, no backend. One turn = one quarter.
 
-Design intent lives in [CLAUDE.md](CLAUDE.md); it is the source of truth and it
-wins over anything written here. [DECISIONS.md](DECISIONS.md) records why things
-ended up the way they did, and what has been deliberately deferred.
-
-**Status: Phase 5 — feel & polish.** Quarterly results land on a split-flap board, route arcs draw themselves in, the masthead figures roll rather than jump, and the map zooms and pans. Keyboard shortcuts (`?` lists them), named save slots, shareable seed links — the game is a pure function of seed, scenario, difficulty and home city, so a link is the whole world — first-turn coaching that retires itself, and sound, off by default and synthesised rather than sampled.
-
-**Phase 4 underneath it — the financial layer.** Every carrier has a share price
-(book value plus a multiple of trailing earnings, scaled by growth) and a market
-cap that is now the score. Borrow against your assets at a credit-rating-driven
-interest rate; issue equity when the price is high; buy stakes in rivals and, past
-a majority, buy them out. Acquisitions fold a rival's routes, fleet and balance
-sheet into yours, funded with cash or debt — a leveraged buyout — and run a few
-quarters of integration drag. The roll-up archetype hunts weak rivals the same
-way, and a much larger predator will seize a player whose share price has
-cratered: a hostile takeover, and a real way to lose. Win by finishing the most
-valuable carrier, or by clearing the board.
-
-Phase 3 still underneath it: the fuel price walks and can be hedged, an event deck
-runs oil spikes and recessions and groundings, and a technology tree turns cash
-into permanent margin. Rivals fly different aircraft with different competence,
-and technology is a real multi-year commitment.
-
-**Two ways to play.** Before you pick a home city you choose a game. *Present day*
-starts in 2026 and runs 25 years — a clear runway. *History, 2000* starts in 2000
-and runs 50 years through the real shocks on their real dates: the dot-com
-recession, 9/11, SARS, the 2008 crash, the ash cloud, COVID. Aircraft arrive on
-their historical launch dates — you fly period metal and adopt each new jet as it
-enters service, with a handful of fictional next-gen types launching on an
-uncertain future date, so being early is an edge. COVID is survivable: a carrier
-that would fail during a declared crisis takes a government bailout, booked as
-debt, a limited number of times. It is designed to model reality closely without
-killing every airline on the board.
+**Play it: [www.airhoncho.com](https://www.airhoncho.com)** — nothing to install.
 
 ## Run it
 
@@ -47,11 +16,28 @@ npm run dev            # http://localhost:5173
    set your home base.
 2. **Acquire aircraft** — buy (cash now, an asset on the books) or lease (a month
    down, then rent every quarter).
-3. Click two cities to price a sector — you see what it costs to open before you commit — then open it and assign a parked aircraft.
+3. Click two cities to price a sector — you see what it costs to open before you
+   commit — then open it and assign a parked aircraft.
 4. Set a pricing posture, then **close the books** on the quarter.
 
 Escape cancels a half-made sector or deselects one. The sector dossier under the
-map shows every component the sim used to settle the quarter.
+map shows every component the sim used to settle the quarter. `?` lists the
+keyboard shortcuts. Games save to named slots, and a seed link carries the whole
+world with it — the game is a pure function of seed, scenario, difficulty and home
+city, so sharing the link shares the exact game.
+
+## Two ways to play
+
+Before you pick a home city you choose a game. *Present day* starts in 2026 and
+runs 25 years — a clear runway. *History, 2000* starts in 2000 and runs 50 years
+through the real shocks on their real dates: the dot-com
+recession, 9/11, SARS, the 2008 crash, the ash cloud, COVID. Aircraft arrive on
+their historical launch dates — you fly period metal and adopt each new jet as it
+enters service, with a handful of fictional next-gen types launching on an
+uncertain future date, so being early is an edge. COVID is survivable: a carrier
+that would fail during a declared crisis takes a government bailout, booked as
+debt, a limited number of times. It is designed to model reality closely without
+killing every airline on the board.
 
 ## The decisions the game is about
 
@@ -81,6 +67,22 @@ you cannot churn to a fresh airframe for free. Buying is cheaper over a long
 horizon but leaves you holding the aging, with a heavy maintenance visit as the
 way to reset the clock. Over 25 years on a good sector, buy-and-hold beats
 lease-and-churn by roughly a third — if you can find the capital up front.
+
+## How you win, and how you lose
+
+Every carrier has a share price — book value plus a multiple of trailing earnings,
+scaled by growth — and your market cap is the score. Borrow against your assets at
+a credit-rating-driven interest rate, issue equity when the price is high, buy
+stakes in rivals and, past a majority, buy them out. An acquisition folds a
+rival's routes, fleet and balance sheet into yours, funded with cash or debt, and
+runs a few quarters of integration drag.
+
+It works in both directions. The roll-up archetype hunts weak carriers the same
+way you would, and a much larger predator will seize a player whose share price
+has cratered — a hostile takeover, and a real way to lose, alongside simply
+running out of cash.
+
+Win by finishing with the most valuable carrier, or by clearing the board.
 
 ## Scripts
 
