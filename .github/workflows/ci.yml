@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node >= 23 runs the .ts sim scripts natively, which is why there is
+          # no ts-node/tsx in devDependencies.
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate map data
+        run: npm run build:map
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npx vite build
+
+      - name: Headless balance summary
+        run: npm run simulate -- --seed 1 --games 20

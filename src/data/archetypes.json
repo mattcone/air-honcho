@@ -1,0 +1,313 @@
+{
+  "_meta": {
+    "note": "Rival strategies. Per CLAUDE.md, archetypes are data-configured and the decision logic lives in /sim/ai/ — one generic brain reads these knobs, so a new archetype is a JSON entry rather than a new code path. Legibility beats cleverness: a player should be able to watch a carrier for a few quarters and name its strategy.",
+    "knobs": {
+      "posture": "fixed pricing posture, unless matchOnOverlap flips it",
+      "matchOnOverlap": "drop to Match on any sector a rival also flies",
+      "startingCash": "USD at entry; deep pockets are how the flag carrier tolerates losses",
+      "dividend": "share of each quarter's profit this archetype pays out to shareholders (0-1). Mature carriers (legacy, flag) return cash; growth carriers (ulcc, rollup) reinvest. Makes the stock market alive: rivals pay dividends the player can earn on with a minority stake, and a payout visibly lifts a share price.",
+      "reserveCash": "below this the carrier retreats from its worst sector",
+      "expandAboveCash": "above this it looks for a new sector or another aircraft",
+      "minProjectedNetPerQuarter": "profit bar to commit; negative means it will buy share at a loss",
+      "minSectorKm / maxSectorKm": "sector lengths it will consider",
+      "fortressHub": "only opens sectors touching its home city",
+      "homeWeightMin / homeWeightMax / homePopMin": "what kind of city it bases at",
+      "avoidArchetypes": "will not open a sector another carrier of these archetypes already flies",
+      "preferOwn": "buys rather than leases when it can afford to",
+      "renewAgeYears": "airframe age at which it hands back and re-equips",
+      "candidatePool": "how many destinations it ranks before choosing",
+      "maxOrigins": "hubs considered when opening; only matters for a non-fortress carrier",
+      "incursionShortlist": "rival markets examined for a possible incursion, richest first",
+      "costAdvantage": "Structural multiplier on the cost lines a carrier controls — crew, maintenance, ground handling; fuel is a world price and is excluded. This is what makes a low-cost carrier low-COST rather than merely low-fare. Real low-cost carriers run 40-50% below a legacy network carrier all-in, so 0.85 on the controllable lines is conservative. WITHOUT it the ULCC carried a legacy cost base on thin fares and was by far the most fragile archetype (hazard 0.31 per 100 quarters against the roll-up's 0.04), the exact reverse of the CLAUDE.md §9 invariant. Do not try to tune this finely: the difference between 0.76 and 0.90 is not resolvable at any sample size this project can run.",
+      "growthDrag": "how much each existing sector raises the cash bar for opening another. Models the fact that an airline cannot absorb unlimited growth; without it a flush carrier expands nearly every quarter for 25 years.",
+      "incursionAppetite": "0..1 willingness to enter a market a rival has already proven profitable. This is pillar 4 — success attracts sharks. At 0 a carrier only ever opens virgin sectors and the player never feels competition."
+    }
+  },
+  "archetypes": [
+    {
+      "id": "ulcc",
+      "costAdvantage": 0.85,
+      "growthDrag": 0.18,
+      "incursionAppetite": 1.0,
+      "name": "Ultra low-cost",
+      "blurb": "Lowest costs, secondary cities, always undercuts. Will not fight another ULCC head to head.",
+      "posture": "undercut",
+      "matchOnOverlap": false,
+      "startingCash": 70000000,
+      "dividend": 0.05,
+      "reserveCash": 24000000,
+      "expandAboveCash": 40000000,
+      "minProjectedNetPerQuarter": 300000,
+      "minSectorKm": 260,
+      "maxSectorKm": 4500,
+      "fortressHub": false,
+      "homeWeightMin": 0.6,
+      "homeWeightMax": 1.35,
+      "homePopMin": 1.5,
+      "avoidArchetypes": [
+        "ulcc"
+      ],
+      "preferOwn": false,
+      "renewAgeYears": 14,
+      "candidatePool": 18,
+      "maxOrigins": 7,
+      "incursionShortlist": 15,
+      "tech": {
+        "avoid": [
+          "alliance",
+          "loyalty",
+          "network-planning"
+        ],
+        "prefer": [
+          "direct-booking",
+          "ancillary-revenue",
+          "ground-handling",
+          "crew-productivity",
+          "fuel-efficiency"
+        ],
+        "appetite": 0.65,
+        "_comment": "Ryanair is in no alliance and runs no traditional frequent-flyer program; the model is cost and ancillary revenue, not network systems. Network planning is gated behind alliance anyway. `avoid` is never funded at all; `prefer` is funded first; `appetite` is the share of the remaining tree this archetype will ever pursue, divided by its thrift roll so two carriers of the same type still differ."
+      },
+      "fleetAffinity": {
+        "Turboprop": 1.0,
+        "Regional jet": 1.0,
+        "Narrowbody": 0.95,
+        "Widebody": 1.22
+      },
+      "_comment_fleetAffinity": "A single dense narrowbody fleet IS the low-cost model: one type to crew, maintain and roster, turned fast at secondary airports. None of it survives contact with a widebody — slow turns wreck the utilisation, secondary fields often cannot take one, and there is no premium cabin or long-haul feed to fill it. The widebody figure is set ABOVE 1/costAdvantage on purpose (0.85 * 1.22 = 1.04), so a ULCC flying widebodies is worse off than an ordinary carrier rather than merely less advantaged. At 1.12 the penalty did not even cancel its own edge and it still flew 65% widebodies. Multiplies costAdvantage on the crew, maintenance and handling lines for the classes actually flown on a sector. Below 1 is cheaper.",
+      "postures": [
+        "undercut",
+        "stimulate"
+      ],
+      "_comment_postures": "Never sells a dear seat — but a low-cost carrier's other move is buying a market outright, fares low enough that people fly who were not travelling at all. That is what STIMULATE is, and it is the archetype's own playbook. A BAND the carrier shops within each quarter, not a lock. With a single fixed posture the rivals could not reach the two notches added on 2026-08-03 at all — measured, skim and stimulate were used on 0.00% of rival route-quarters while the player fixture used skim on 29.8%. The player had pricing moves the field could not answer. `posture` stays as the identity/fallback and is what matchOnOverlap reverts to."
+    },
+    {
+      "id": "legacy",
+      "costAdvantage": 1.04,
+      "growthDrag": 0.25,
+      "incursionAppetite": 0.55,
+      "name": "Legacy hub",
+      "blurb": "Fortress hub, premium fares, widebodies. Matches only where someone contests it.",
+      "posture": "premium",
+      "matchOnOverlap": true,
+      "startingCash": 150000000,
+      "dividend": 0.3,
+      "reserveCash": 30000000,
+      "acquisitive": true,
+      "acquisitionAppetite": 0.3,
+      "expandAboveCash": 60000000,
+      "minProjectedNetPerQuarter": 700000,
+      "minSectorKm": 400,
+      "maxSectorKm": 12000,
+      "fortressHub": true,
+      "homeWeightMin": 1.2,
+      "homeWeightMax": 2.0,
+      "homePopMin": 4.0,
+      "avoidArchetypes": [],
+      "preferOwn": true,
+      "renewAgeYears": 12,
+      "candidatePool": 18,
+      "maxOrigins": 7,
+      "incursionShortlist": 15,
+      "tech": {
+        "avoid": [
+          "ancillary-revenue"
+        ],
+        "prefer": [
+          "revenue-management",
+          "alliance",
+          "loyalty",
+          "revenue-management-2",
+          "network-planning",
+          "operations-control"
+        ],
+        "appetite": 0.95,
+        "_comment": "The crown jewels of a legacy hub carrier are its alliance and its loyalty program — often worth more than the airline. Unbundling carries a brand penalty it will not take. `avoid` is never funded at all; `prefer` is funded first; `appetite` is the share of the remaining tree this archetype will ever pursue, divided by its thrift roll so two carriers of the same type still differ."
+      },
+      "fleetAffinity": {
+        "Turboprop": 1.08,
+        "Regional jet": 1.03,
+        "Narrowbody": 1.02,
+        "Widebody": 0.91
+      },
+      "_comment_fleetAffinity": "Hub and long-haul expertise: the widebody is the aircraft this carrier is built around, and the mainline scale to run it. Turboprops are somebody else's regional subsidiary. Multiplies costAdvantage on the crew, maintenance and handling lines for the classes actually flown on a sector. Below 1 is cheaper.",
+      "postures": [
+        "skim",
+        "premium"
+      ],
+      "_comment_postures": "Charges what the hub will bear. On a sector it holds alone and is already turning people away at Premium, it goes higher — which is what a fortress hub does. Still drops to matching the moment somebody contests it; see matchOnOverlap. A BAND the carrier shops within each quarter, not a lock. With a single fixed posture the rivals could not reach the two notches added on 2026-08-03 at all — measured, skim and stimulate were used on 0.00% of rival route-quarters while the player fixture used skim on 29.8%. The player had pricing moves the field could not answer. `posture` stays as the identity/fallback and is what matchOnOverlap reverts to."
+    },
+    {
+      "id": "flag",
+      "costAdvantage": 1.02,
+      "growthDrag": 0.22,
+      "incursionAppetite": 0.7,
+      "name": "State-backed flag carrier",
+      "blurb": "Deep pockets and prestige long-haul. Will fly at a loss for years to hold share.",
+      "posture": "match",
+      "matchOnOverlap": false,
+      "startingCash": 260000000,
+      "dividend": 0.18,
+      "reserveCash": 15000000,
+      "acquisitive": true,
+      "acquisitionAppetite": 0.35,
+      "expandAboveCash": 55000000,
+      "minProjectedNetPerQuarter": -900000,
+      "minSectorKm": 2500,
+      "maxSectorKm": 15000,
+      "fortressHub": true,
+      "homeWeightMin": 0.4,
+      "homeWeightMax": 2.0,
+      "homePopMin": 2.0,
+      "avoidArchetypes": [],
+      "preferOwn": true,
+      "renewAgeYears": 15,
+      "candidatePool": 18,
+      "maxOrigins": 7,
+      "incursionShortlist": 15,
+      "tech": {
+        "avoid": [
+          "alliance",
+          "ancillary-revenue"
+        ],
+        "prefer": [
+          "loyalty",
+          "revenue-management",
+          "predictive-maintenance",
+          "operations-control",
+          "fuel-efficiency"
+        ],
+        "appetite": 0.8,
+        "_comment": "Emirates and Qatar built global networks without joining an alliance, and compete on product rather than on unbundling. Deep pockets, so a wide program otherwise. `avoid` is never funded at all; `prefer` is funded first; `appetite` is the share of the remaining tree this archetype will ever pursue, divided by its thrift roll so two carriers of the same type still differ."
+      },
+      "fleetAffinity": {
+        "Turboprop": 1.12,
+        "Regional jet": 1.06,
+        "Narrowbody": 1.05,
+        "Widebody": 0.88
+      },
+      "_comment_fleetAffinity": "Prestige long-haul is the whole remit, and the state pays for the widebody infrastructure. Small aircraft are off-strategy. Multiplies costAdvantage on the crew, maintenance and handling lines for the classes actually flown on a sector. Below 1 is cheaper.",
+      "postures": [
+        "skim",
+        "premium",
+        "match"
+      ],
+      "_comment_postures": "Prestige long-haul, priced accordingly. Will skim a route nobody else can fly and will sit at market fares on a thinner one, but never discounts — that is the whole posture of a state-backed carrier. A BAND the carrier shops within each quarter, not a lock. With a single fixed posture the rivals could not reach the two notches added on 2026-08-03 at all — measured, skim and stimulate were used on 0.00% of rival route-quarters while the player fixture used skim on 29.8%. The player had pricing moves the field could not answer. `posture` stays as the identity/fallback and is what matchOnOverlap reverts to."
+    },
+    {
+      "id": "rollup",
+      "costAdvantage": 1.0,
+      "growthDrag": 0.02,
+      "incursionAppetite": 1.05,
+      "name": "Roll-up artist",
+      "blurb": "Grows fast on thin capital. Fragile, and a takeover target once the market turns.",
+      "posture": "match",
+      "matchOnOverlap": false,
+      "startingCash": 95000000,
+      "dividend": 0.0,
+      "reserveCash": 2500000,
+      "expandAboveCash": 9000000,
+      "minProjectedNetPerQuarter": 100000,
+      "minSectorKm": 280,
+      "maxSectorKm": 9000,
+      "fortressHub": false,
+      "homeWeightMin": 0.5,
+      "homeWeightMax": 2.0,
+      "homePopMin": 1.0,
+      "avoidArchetypes": [],
+      "preferOwn": false,
+      "renewAgeYears": 18,
+      "candidatePool": 18,
+      "maxOrigins": 7,
+      "incursionShortlist": 15,
+      "tech": {
+        "avoid": [
+          "alliance",
+          "network-planning",
+          "revenue-management-2"
+        ],
+        "prefer": [
+          "direct-booking",
+          "hedging-desk",
+          "ancillary-revenue",
+          "crew-productivity"
+        ],
+        "appetite": 0.45,
+        "_comment": "Highly leveraged and buying carriers rather than systems. Takes the cheap fast-payback programs and will not tie up cash in a five-quarter one. `avoid` is never funded at all; `prefer` is funded first; `appetite` is the share of the remaining tree this archetype will ever pursue, divided by its thrift roll so two carriers of the same type still differ."
+      },
+      "acquisitive": true,
+      "acquisitionAppetite": 1,
+      "fleetAffinity": {
+        "Turboprop": 1.0,
+        "Regional jet": 1.0,
+        "Narrowbody": 1.0,
+        "Widebody": 1.0
+      },
+      "_comment_fleetAffinity": "Flies whatever it just bought. No structural preference, which is exactly its problem. Multiplies costAdvantage on the crew, maintenance and handling lines for the classes actually flown on a sector. Below 1 is cheaper.",
+      "postures": [
+        "match",
+        "undercut"
+      ],
+      "_comment_postures": "No pricing identity to speak of: it competes on the routes it bought, at or a little under the market. Its edge is the balance sheet, not the fare. A BAND the carrier shops within each quarter, not a lock. With a single fixed posture the rivals could not reach the two notches added on 2026-08-03 at all — measured, skim and stimulate were used on 0.00% of rival route-quarters while the player fixture used skim on 29.8%. The player had pricing moves the field could not answer. `posture` stays as the identity/fallback and is what matchOnOverlap reverts to."
+    },
+    {
+      "id": "monopolist",
+      "name": "Territorial",
+      "blurb": "Wants a city to itself. Takes every sector out of its hub, contests anyone who lands there, and charges for the privilege once it has the place.",
+      "_comment": "The completionist of the field, and the shape the roster was missing. Every other archetype grows where the money is; this one grows where its FLAG already is, taking sectors out of its own hub at margins the others would pass on, because the point is that nobody else has them. It is deliberately not the best strategy — a carrier that pays over the odds to finish a set is beatable — but it is a legible one, and it changes what the board looks like: a Territorial's hub is a place the player either avoids or has to fight for, rather than one more market to price.",
+      "costAdvantage": 1.02,
+      "growthDrag": 0.18,
+      "incursionAppetite": 0.8,
+      "posture": "match",
+      "matchOnOverlap": true,
+      "startingCash": 130000000,
+      "dividend": 0.2,
+      "reserveCash": 26000000,
+      "acquisitive": true,
+      "acquisitionAppetite": 0.45,
+      "expandAboveCash": 45000000,
+      "minProjectedNetPerQuarter": 450000,
+      "_comment_minProjectedNetPerQuarter": "Lower than any other archetype's, which is the whole personality: it will open a sector the legacy carrier would walk away from, provided the sector is on its patch.",
+      "minSectorKm": 300,
+      "maxSectorKm": 11000,
+      "fortressHub": false,
+      "cornerHub": true,
+      "_comment_cornerHub": "Turns fortressHub from a network shape into an ambition. It bends new-sector scoring toward its own hub, drives it to contest anyone else who flies from there, and lets it price up once it holds most of the place — build the set, then charge rent.",
+      "homeWeightMin": 1.0,
+      "homeWeightMax": 1.8,
+      "homePopMin": 3.0,
+      "avoidArchetypes": [
+        "monopolist"
+      ],
+      "_comment_avoidArchetypes": "Two of these on one city is a war neither wins and the player never sees, so they take separate hubs.",
+      "preferOwn": true,
+      "renewAgeYears": 14,
+      "candidatePool": 20,
+      "maxOrigins": 5,
+      "incursionShortlist": 14,
+      "tech": {
+        "avoid": [],
+        "prefer": [
+          "network-planning",
+          "revenue-management",
+          "operations-control",
+          "loyalty"
+        ],
+        "appetite": 0.8,
+        "_comment": "Buys what tightens its grip on a hub — schedule planning and revenue management — before anything that widens its reach."
+      },
+      "fleetAffinity": {
+        "Turboprop": 1.05,
+        "Regional jet": 1.06,
+        "Narrowbody": 1.0,
+        "Widebody": 0.98
+      },
+      "postures": [
+        "match",
+        "skim",
+        "premium"
+      ],
+      "_comment_fortressHub": "Deliberately NOT a fortress. `fortressHub` restricts origins to the home city, which would make every candidate sector on-patch by definition and turn cornerPull into a flat willingness multiplier with no preference in it — keener, not territorial. It has to be able to look elsewhere for the pull toward its own city to mean anything, and for choosing its city over a better sector abroad to be a real decision it is making."
+    }
+  ]
+}

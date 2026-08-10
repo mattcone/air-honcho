@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Air Honcho</title>
+    <meta name="description" content="A turn-based airline management game. Buy a plane, open a route, keep the board happy." />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="masthead">
+        <!-- The cheatline: the stripe that runs the length of a fuselage, passing
+             under the wordmark and out across the whole masthead. -->
+        <span class="cheatline" aria-hidden="true"></span>
+        <div class="livery">
+          <span class="livery-mark" aria-hidden="true"></span>
+          <h1 class="wordmark"><span class="wordmark-air">Air</span> <span class="wordmark-name">Honcho</span></h1>
+        </div>
+
+        <dl class="status">
+          <div class="status-field">
+            <dt>Quarter</dt>
+            <dd id="status-quarter">—</dd>
+          </div>
+          <div class="status-field">
+            <dt>Cash</dt>
+            <dd id="status-cash">—</dd>
+          </div>
+          <div class="status-field">
+            <dt>Market cap</dt>
+            <dd id="status-worth">—</dd>
+          </div>
+          <div class="status-field">
+            <dt>Fleet</dt>
+            <dd id="status-fleet">—</dd>
+          </div>
+          <div class="status-field">
+            <dt>Sectors</dt>
+            <dd id="status-sectors">—</dd>
+          </div>
+          <div class="status-field">
+            <dt>Fuel</dt>
+            <dd id="status-fuel">—</dd>
+          </div>
+        </dl>
+      </header>
+
+      <main class="board">
+        <aside class="rail">
+          <div class="rail-scroll">
+            <section class="panel panel--schedule">
+              <h2 class="panel-heading">Schedule</h2>
+              <p class="hint" id="hint" role="status"></p>
+
+              <table class="ledger">
+                <thead>
+                  <tr>
+                    <th scope="col">Sector</th>
+                    <th scope="col" class="cell-num">km</th>
+                    <th scope="col" class="cell-num">A/C</th>
+                    <th scope="col" class="cell-num">Load</th>
+                    <th scope="col" class="cell-num">Net</th>
+                  </tr>
+                </thead>
+                <tbody id="ledger"></tbody>
+              </table>
+            </section>
+
+            <section class="panel panel--conditions">
+              <h2 class="panel-heading">Conditions</h2>
+              <div id="conditions-list" class="conditions-list"></div>
+              <button type="button" id="hedge" class="wide-action wide-action--quiet">Hedge fuel</button>
+              <button type="button" id="tech" class="wide-action">Technology</button>
+              <button type="button" id="treasury" class="wide-action wide-action--quiet">Treasury &amp; markets</button>
+            </section>
+
+            <section class="panel panel--rivals">
+              <h2 class="panel-heading">The competition</h2>
+              <div id="rivals-list" class="rivals-list"></div>
+              <button type="button" id="rivals-report" class="wide-action wide-action--quiet">Read their books</button>
+            </section>
+
+            <section class="panel panel--fleet">
+              <h2 class="panel-heading">Fleet</h2>
+              <div id="fleet-list" class="fleet-list"></div>
+              <button type="button" id="acquire" class="wide-action">Acquire aircraft</button>
+            </section>
+          </div>
+
+          <div class="rail-foot">
+            <button type="button" id="close-books" class="commit">Close the books</button>
+            <div class="file-actions">
+              <button type="button" id="export-save">Export</button>
+              <button type="button" id="import-save">Import</button>
+              <button type="button" id="share-game">Share</button>
+              <button type="button" id="slots">Slots</button>
+              <button type="button" id="sound" aria-pressed="false">Sound off</button>
+              <button type="button" id="new-game">New game</button>
+            </div>
+            <input type="file" id="file-input" accept="application/json,.json" hidden />
+          </div>
+        </aside>
+
+        <section class="chart">
+          <div class="map-frame" id="map-frame">
+            <div class="map-zoom" role="group" aria-label="Zoom the map">
+              <button type="button" id="zoom-in" class="map-zoom-btn" aria-label="Zoom in">+</button>
+              <button type="button" id="zoom-out" class="map-zoom-btn" aria-label="Zoom out">−</button>
+            </div>
+          </div>
+          <div class="inspector" id="inspector"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="acquire-dialog" class="sheet" aria-labelledby="acquire-title">
+      <form method="dialog" class="sheet-head">
+        <h2 id="acquire-title">Aircraft market</h2>
+        <button type="submit" class="sheet-close" aria-label="Close the aircraft market">×</button>
+      </form>
+      <p class="sheet-note" id="acquire-note"></p>
+      <div class="sheet-body">
+        <div class="market-catalog" id="market-body"></div>
+        <div class="market-colophon">
+          <p id="market-provenance"></p>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Generic amount prompt. Every money decision used window.prompt(), which
+         cannot show what the number means, cannot offer a sensible default, and
+         cannot stop you typing a figure the sim will refuse. -->
+    <dialog id="amount-dialog" class="sheet sheet--ask" aria-labelledby="amount-title">
+      <form method="dialog" class="sheet-head">
+        <h2 id="amount-title"></h2>
+        <button type="submit" class="sheet-close" value="" aria-label="Cancel">×</button>
+      </form>
+      <p class="sheet-note" id="amount-blurb"></p>
+      <div class="ask-body">
+        <div class="ask-presets" id="amount-presets"></div>
+        <label class="ask-field">
+          <span class="ask-field-label" id="amount-field-label">Amount</span>
+          <span class="ask-input-wrap">
+            <span class="ask-affix" id="amount-prefix"></span>
+            <input type="number" id="amount-input" step="any" min="0" autocomplete="off" />
+            <span class="ask-affix" id="amount-suffix"></span>
+          </span>
+        </label>
+        <p class="ask-preview" id="amount-preview"></p>
+      </div>
+      <div class="ask-actions">
+        <button type="button" class="ask-cancel" id="amount-cancel">Cancel</button>
+        <button type="button" class="ask-confirm" id="amount-confirm">Confirm</button>
+      </div>
+    </dialog>
+
+    <!-- Generic choice prompt, for decisions that are not an amount. -->
+    <dialog id="choice-dialog" class="sheet sheet--ask" aria-labelledby="choice-title">
+      <form method="dialog" class="sheet-head">
+        <h2 id="choice-title"></h2>
+        <button type="submit" class="sheet-close" value="" aria-label="Cancel">×</button>
+      </form>
+      <p class="sheet-note" id="choice-blurb"></p>
+      <p class="ask-warning" id="choice-warning" hidden></p>
+      <div class="ask-actions ask-actions--stack" id="choice-actions"></div>
+    </dialog>
+
+    <dialog id="rivals-dialog" class="sheet" aria-labelledby="rivals-title">
+      <form method="dialog" class="sheet-head">
+        <h2 id="rivals-title">The competition</h2>
+        <button type="submit" class="sheet-close" aria-label="Close the competition report">×</button>
+      </form>
+      <p class="sheet-note" id="rivals-note"></p>
+      <div class="sheet-body">
+        <table class="market">
+          <thead>
+            <tr>
+              <th scope="col">Carrier</th>
+              <th scope="col">Strategy</th>
+              <th scope="col">Hub</th>
+              <th scope="col" class="cell-num">Sectors</th>
+              <th scope="col" class="cell-num">Fleet</th>
+              <th scope="col" class="cell-num">Tech</th>
+              <th scope="col" class="cell-num">Revenue</th>
+              <th scope="col" class="cell-num">Net</th>
+              <th scope="col" class="cell-num">Cash</th>
+              <th scope="col" class="cell-num">vs you</th>
+            </tr>
+          </thead>
+          <tbody id="rivals-body"></tbody>
+        </table>
+      </div>
+    </dialog>
+
+    <dialog id="treasury-dialog" class="sheet" aria-labelledby="treasury-title">
+      <form method="dialog" class="sheet-head">
+        <h2 id="treasury-title">Treasury &amp; markets</h2>
+        <button type="submit" class="sheet-close" aria-label="Close the treasury">×</button>
+      </form>
+      <p class="sheet-note" id="treasury-note"></p>
+      <div class="sheet-body">
+        <div id="treasury-figures" class="figures figures--ops"></div>
+        <div class="treasury-actions">
+          <button type="button" id="borrow" class="wide-action wide-action--primary">Borrow</button>
+          <button type="button" id="repay" class="wide-action wide-action--quiet">Repay debt</button>
+          <button type="button" id="issue-equity" class="wide-action wide-action--quiet">Issue equity</button>
+          <button type="button" id="own-dividend" class="wide-action wide-action--quiet">Set dividend</button>
+        </div>
+        <h3 class="panel-heading" style="margin-top:16px">Rivals — stakes, control and buyouts</h3>
+        <p class="sheet-note" id="treasury-market-note"></p>
+        <p class="sheet-note" id="treasury-shareholders"></p>
+        <table class="market">
+          <thead>
+            <tr>
+              <th scope="col">Carrier</th>
+              <th scope="col" class="cell-num">Market cap</th>
+              <th scope="col" class="cell-num">Share price</th>
+              <th scope="col" class="cell-num">Your stake</th>
+              <th scope="col" class="cell-num" title="Shares still on the open market — nobody holds these, so this is all anyone can still buy">Free float</th>
+              <th scope="col" class="cell-num">Dividend</th>
+              <th scope="col">Held by</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody id="treasury-rivals"></tbody>
+        </table>
+      </div>
+    </dialog>
+
+    <dialog id="tech-dialog" class="sheet" aria-labelledby="tech-title">
+      <form method="dialog" class="sheet-head">
+        <h2 id="tech-title">Technology program</h2>
+        <button type="submit" class="sheet-close" aria-label="Close the technology program">×</button>
+      </form>
+      <p class="sheet-note" id="tech-note"></p>
+      <div id="tech-standing"></div>
+      <div class="sheet-body">
+        <table class="market">
+          <thead>
+            <tr>
+              <th scope="col">Program</th>
+              <th scope="col">What it does</th>
+              <th scope="col" class="cell-num">Cost</th>
+              <th scope="col" class="cell-num">Lead</th>
+              <th scope="col"><span class="visually-hidden">Fund</span></th>
+            </tr>
+          </thead>
+          <tbody id="tech-body"></tbody>
+        </table>
+      </div>
+    </dialog>
+
+    <!-- First-turn coaching. Points at a real control, never blocks, and one
+         dismissal ends it for good. -->
+    <div class="coach" id="coach" role="status" hidden>
+      <div class="coach-head">
+        <span class="coach-step" id="coach-step"></span>
+        <span class="coach-nav">
+          <button type="button" id="coach-prev" class="coach-arrow" aria-label="Previous note">&#8592;</button>
+          <button type="button" id="coach-next" class="coach-arrow" aria-label="Next note">&#8594;</button>
+        </span>
+      </div>
+      <p class="coach-text" id="coach-text"></p>
+      <button type="button" id="coach-dismiss" class="coach-dismiss">Got it</button>
+    </div>
+
+    <dialog id="slots-dialog" class="sheet" aria-labelledby="slots-title">
+      <form method="dialog" class="sheet-head">
+        <h2 id="slots-title">Save slots</h2>
+        <button type="submit" class="sheet-close" aria-label="Close the save slots">×</button>
+      </form>
+      <p class="sheet-note" id="slots-note"></p>
+      <div class="sheet-body">
+        <div class="slot-list" id="slots-list"></div>
+        <button type="button" id="slot-save-new" class="wide-action">Save current game to a new slot</button>
+      </div>
+    </dialog>
+
+    <dialog id="briefing-dialog" class="briefing" aria-labelledby="briefing-title">
+      <div class="briefing-head">
+        <p class="briefing-eyebrow">Board briefing</p>
+        <h2 class="briefing-title" id="briefing-title">—</h2>
+      </div>
+      <div class="briefing-body" id="briefing-body"></div>
+      <div class="briefing-actions">
+        <button type="button" id="briefing-dismiss" class="commit">Continue</button>
+      </div>
+    </dialog>
+
+    <dialog id="start-dialog" class="start" aria-labelledby="start-title">
+      <div class="start-head">
+        <p class="start-eyebrow">New game</p>
+        <h2 class="start-title" id="start-title">You have just been made chief executive of Air Honcho, an airline that does not exist yet.</h2>
+        <p class="start-lede">
+          There is money in the bank, a name on the door, and nothing in the air. What
+          you do with that is the game.
+        </p>
+      </div>
+
+      <div class="start-body">
+        <section class="start-brief" aria-label="Terms of the job">
+          <dl class="start-terms">
+            <div>
+              <dt>The job</dt>
+              <dd>
+                Lease or buy aircraft, open sectors between cities, and set what you
+                charge. Everything here is a decision a board actually takes — fleet,
+                network, pricing, debt. Nobody asks you to roster a crew.
+              </dd>
+            </div>
+            <div>
+              <dt>A turn</dt>
+              <dd>One quarter. Nothing is timed; think as long as you like.</dd>
+            </div>
+            <div>
+              <dt>You win</dt>
+              <dd>
+                By being the most valuable carrier in the sky when the horizon closes —
+                or sooner, if every rival is bankrupt or bought.
+              </dd>
+            </div>
+            <div>
+              <dt>You lose</dt>
+              <dd>
+                By running out of cash, or by letting a rival buy a controlling stake in
+                you. Both are real endings.
+              </dd>
+            </div>
+            <div>
+              <dt>The competition</dt>
+              <dd>
+                You start alone. Rivals arrive over the years — a low-cost operator
+                undercutting everyone, a legacy carrier defending a fortress hub, a
+                state-backed flag carrier that can afford to lose money, a roll-up
+                artist buying whoever is weakest. They come sooner the better you do.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="start-choices" aria-label="Set up the game">
+          <fieldset class="scenario" id="start-scenario">
+            <legend>Era</legend>
+            <label class="scenario-option">
+              <input type="radio" name="start-scenario" value="present" checked />
+              <span class="scenario-name">Present day</span>
+              <span class="scenario-note">Start 2026. A clear runway — 25 years, no scripted history.</span>
+            </label>
+            <label class="scenario-option">
+              <input type="radio" name="start-scenario" value="history" />
+              <span class="scenario-name">History, 2000</span>
+              <span class="scenario-note">Start 2000. Live through 9/11, 2008 and COVID. New aircraft arrive as the decades turn. 50 years.</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="scenario" id="start-difficulty">
+            <legend>Difficulty</legend>
+            <label class="scenario-option">
+              <input type="radio" name="start-difficulty" value="easy" />
+              <span class="scenario-name">Easy</span>
+              <span class="scenario-note">Busier markets, more cash, a smaller and gentler field. A forgiving first game.</span>
+            </label>
+            <label class="scenario-option">
+              <input type="radio" name="start-difficulty" value="medium" checked />
+              <span class="scenario-name">Medium</span>
+              <span class="scenario-note">The standard game, tuned and balanced. Recommended.</span>
+            </label>
+            <label class="scenario-option">
+              <input type="radio" name="start-difficulty" value="hard" />
+              <span class="scenario-name">Hard</span>
+              <span class="scenario-note">Thinner traffic, less runway. A bigger field arrives sooner and fights harder.</span>
+            </label>
+          </fieldset>
+
+          <div class="start-home">
+            <label class="start-home-label" for="start-home-select">Home base</label>
+            <select id="start-home-select" class="start-select"></select>
+            <p class="start-home-note" id="start-home-note"></p>
+          </div>
+        </section>
+      </div>
+
+      <div class="start-actions">
+        <button type="button" id="start-confirm" class="commit">Take the job</button>
+      </div>
+    </dialog>
+
+    <dialog id="over-dialog" class="verdict" aria-labelledby="over-title">
+      <p class="verdict-eyebrow" id="over-eyebrow">Final call</p>
+      <h2 class="verdict-title" id="over-title">Game over</h2>
+      <p class="verdict-reason" id="over-reason"></p>
+      <dl class="verdict-figures" id="over-figures"></dl>
+      <div class="verdict-actions">
+        <button type="button" id="over-new" class="commit">Start a new game</button>
+        <button type="button" id="over-dismiss" class="wide-action wide-action--quiet">Review the board</button>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

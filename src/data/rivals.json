@@ -1,0 +1,154 @@
+{
+  "_meta": {
+    "note": "A pool of possible carriers, NOT a fixed cast. At the start of each game a subset is drawn from the seeded RNG, each is dealt an archetype, an entry turn and a personality, and only those enter. Two games from different seeds should not feel like the same opponents doing the same things.",
+    "determinism": "The draw happens once in newGame and is stored in GameState.rivalPlan, so it rides along in the save file and the same seed always produces the same cast.",
+    "colors": "One flat accent per carrier, chosen to stay legible on the paper map and to avoid the player's navy."
+  },
+  "roster": [
+    {
+      "id": "kestrel",
+      "name": "Kestrel Air",
+      "color": "#b8860b"
+    },
+    {
+      "id": "meridian",
+      "name": "Meridian Airways",
+      "color": "#8b2f47"
+    },
+    {
+      "id": "halyard",
+      "name": "Halyard Group",
+      "color": "#8a3324"
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora National",
+      "color": "#2f6f6f"
+    },
+    {
+      "id": "bantam",
+      "name": "Bantam",
+      "color": "#7d9a3e"
+    },
+    {
+      "id": "crown",
+      "name": "Crown Continental",
+      "color": "#5c4b8a"
+    },
+    {
+      "id": "republic",
+      "name": "Republic Air",
+      "color": "#a0522d"
+    },
+    {
+      "id": "cordillera",
+      "name": "Cordillera",
+      "color": "#3d6b4a"
+    },
+    {
+      "id": "pelagic",
+      "name": "Pelagic Airlines",
+      "color": "#1f6f8b"
+    },
+    {
+      "id": "tessera",
+      "name": "Tessera Air",
+      "color": "#9c6b30"
+    },
+    {
+      "id": "orcadia",
+      "name": "Orcadia",
+      "color": "#6b2d5c"
+    },
+    {
+      "id": "lodestar",
+      "name": "Lodestar Airways",
+      "color": "#4f7942"
+    },
+    {
+      "id": "marchfield",
+      "name": "Marchfield Air",
+      "color": "#a03050"
+    },
+    {
+      "id": "sable",
+      "name": "Sable Continental",
+      "color": "#5a5a7a"
+    },
+    {
+      "id": "quillon",
+      "name": "Quillon Air",
+      "color": "#8f6b2f"
+    },
+    {
+      "id": "verano",
+      "name": "Verano",
+      "color": "#2e7d5b"
+    },
+    {
+      "id": "zephyr",
+      "name": "Zephyr Air",
+      "color": "#2f7d8b"
+    },
+    {
+      "id": "solstice",
+      "name": "Solstice Airways",
+      "color": "#c77d2e"
+    },
+    {
+      "id": "ironwood",
+      "name": "Ironwood Air",
+      "color": "#5a6b3a"
+    },
+    {
+      "id": "beacon",
+      "name": "Beacon Airlines",
+      "color": "#7a3f8f"
+    },
+    {
+      "id": "nimbus",
+      "name": "Nimbus Air",
+      "color": "#356fae"
+    },
+    {
+      "id": "harrier",
+      "name": "Harrier Airways",
+      "color": "#6b2f2f"
+    },
+    {
+      "id": "cascade",
+      "name": "Cascade Airlines",
+      "color": "#2f8f6b"
+    },
+    {
+      "id": "talon",
+      "name": "Talon Air",
+      "color": "#8f7a2f"
+    }
+  ],
+  "draw": {
+    "minRivals": 8,
+    "maxRivals": 12,
+    "_comment_rivals": "How many of the roster enter in a given game. Fewer means a sparser, easier world; more means a crowded one.",
+    "firstEntryTurn": 3,
+    "entryGapMin": 3,
+    "entryGapMax": 9,
+    "_comment_entry": "The first rival arrives around firstEntryTurn and the rest follow at seeded gaps, so the difficulty curve differs run to run.",
+    "attentionBaseMillions": 12,
+    "attentionStepMillions": 14,
+    "_comment_attention": "Trailing-year player profit that pulls a rival in ahead of schedule. Pillar 4: success attracts sharks.",
+    "aggressionMin": 0.9,
+    "aggressionMax": 1.7,
+    "_comment_aggression": "Personality roll. Scales how readily a carrier contests a market and how thin a profit it will accept. Two ULCCs in different games should not play identically.",
+    "thriftMin": 0.7,
+    "thriftMax": 1.4,
+    "_comment_thrift": "Personality roll on cash discipline: how much buffer it keeps before expanding, and how late it retreats.",
+    "playerFocusMultiplier": 2.1,
+    "_comment_playerFocus": "How much more attractive a market looks to a rival when it is the PLAYER flying it. Pillar 4 says competitors enter in response to visible player profits, so this is the design, not a thumb on the scale — the player is the newsworthy operator. At 1.0 rivals mostly end up raiding each other and the player never feels hunted.",
+    "reachMin": 0.75,
+    "reachMax": 1.3,
+    "_comment_reach": "Personality roll on how far it is willing to fly.",
+    "gaugeBiasSpread": 0.5,
+    "_comment_gaugeBiasSpread": "How far a carrier's fleet planning can miss the right-sized aircraft for a route. Each carrier rolls a gauge bias in [1-this, 1+this]: a sharp operator lands near 1 and flies the aircraft that fits, a poor one sits near the edges and chronically over- or under-gauges — too big and it flies half-empty, too small and it spills traffic to rivals. This is what stops every AI converging on the same optimal aircraft: some are simply better at fleet planning than others. 0 makes them all sharp."
+  }
+}

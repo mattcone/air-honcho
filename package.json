@@ -1,0 +1,51 @@
+{
+  "name": "air-honcho",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Turn-based airline management game. Browser-based, no backend.",
+  "keywords": [
+    "game",
+    "simulation",
+    "airline",
+    "management",
+    "turn-based",
+    "typescript"
+  ],
+  "license": "MIT",
+  "author": "Matt Cone",
+  "homepage": "https://github.com/mattcone/air-honcho#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattcone/air-honcho.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mattcone/air-honcho/issues"
+  },
+  "engines": {
+    "node": ">=23"
+  },
+  "scripts": {
+    "build:map": "node scripts/build-map.mjs",
+    "predev": "npm run build:map",
+    "dev": "vite",
+    "prebuild": "npm run build:map",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "simulate": "node scripts/simulate.ts",
+    "analyze": "node scripts/analyze.ts",
+    "controlled": "node scripts/controlled.ts",
+    "tune": "node scripts/tune.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "topojson-client": "^3.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.4",
+    "world-atlas": "^2.0.2"
+  }
+}

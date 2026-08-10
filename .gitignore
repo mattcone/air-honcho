@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+
+# Generated at build time by scripts/build-map.mjs
+src/data/world-110m.geo.json

@@ -1,0 +1,95 @@
+/**
+ * First-turn onboarding: five tooltips, not a tutorial mode.
+ *
+ * CLAUDE.md pillar 3 says turn 1 must be playable in under two minutes with no
+ * tutorial, so this never blocks, never takes the controls, and never gates a
+ * step. Each note points at a real control, waits for the player to actually do
+ * that thing, and then gets out of the way. Dismissing any of them ends the whole
+ * sequence for good — someone who does not want hand-holding says so once.
+ *
+ * The steps are keyed to game state rather than to clicks, so a player who worked
+ * it out for themselves never sees the note telling them to do what they just did.
+ */
+import type { GameState } from '../sim/types.ts';
+
+const SEEN_KEY = 'air-honcho:onboarded';
+
+export interface OnboardingStep {
+  readonly id: string;
+  /** CSS selector for the control this note is about. */
+  readonly anchor: string;
+  readonly text: string;
+  /** True once the player has done this step — the note retires itself. */
+  done(game: GameState | null): boolean;
+}
+
+const playerRoutes = (game: GameState | null): number =>
+  game ? game.routes.filter((r) => r.carrierId === game.playerCarrierId).length : 0;
+
+export const STEPS: readonly OnboardingStep[] = [
+  {
+    id: 'home',
+    anchor: '#map-frame',
+    text: 'Pick a home city on the map. Everything you fly starts from the network you build around it.',
+    done: (game) => game !== null,
+  },
+  {
+    id: 'fleet',
+    anchor: '#acquire',
+    text: 'You cannot fly without metal. Lease an aircraft — leasing costs cash every quarter but leaves the bank intact.',
+    done: (game) => (game?.carriers.find((c) => c.isPlayer)?.fleet.length ?? 0) > 0,
+  },
+  {
+    id: 'route',
+    anchor: '#map-frame',
+    text: 'Now pick a sector: click your home city, then a destination. You will see what it costs before you open it — short, busy pairs pay before long thin ones.',
+    done: (game) => playerRoutes(game) > 0,
+  },
+  {
+    id: 'posture',
+    anchor: '#inspector',
+    text: 'Select the sector to set its fare posture. Undercut fills seats and invites a fight; Premium earns more per head.',
+    // Retires once there is metal on a sector: the player is ready to fly, and
+    // whether they actually changed the posture is rightly their business — reading
+    // the dossier is the point. It must NOT key on `turn > 0` like the step after
+    // it; both then retire on the very same event, and the last note — the one that
+    // explains how to end a turn at all — is never shown once.
+    done: (game) =>
+      (game?.carriers.find((c) => c.isPlayer)?.fleet ?? []).some((a) => a.routeId !== null),
+  },
+  {
+    id: 'books',
+    anchor: '#close-books',
+    text: 'Close the books to fly the quarter. The board briefing afterwards tells you what changed and what to worry about.',
+    done: (game) => (game?.turn ?? 0) > 0,
+  },
+];
+
+export function onboardingSeen(): boolean {
+  try {
+    return localStorage.getItem(SEEN_KEY) === 'yes';
+  } catch {
+    return true; // storage blocked: do not nag on every load
+  }
+}
+
+export function markOnboardingSeen(): void {
+  try {
+    localStorage.setItem(SEEN_KEY, 'yes');
+  } catch {
+    // Nothing to do — the sequence simply reappears next session.
+  }
+}
+
+/**
+ * Coaching stops after this many quarters however much of it went unread. Someone
+ * who has closed the books twice has found their feet, and a player deliberately
+ * flying no aircraft should not be nagged about it for the rest of a 25-year game.
+ */
+const COACH_UNTIL_TURN = 2;
+
+/** The first step the player has not yet completed, or null when they are done. */
+export function nextStep(game: GameState | null): OnboardingStep | null {
+  if (game && game.turn >= COACH_UNTIL_TURN) return null;
+  return STEPS.find((s) => !s.done(game)) ?? null;
+}

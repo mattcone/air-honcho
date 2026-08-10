@@ -1,0 +1,3135 @@
+/*
+ * Airline modernism.
+ *
+ * The reference is printed matter from the industry: a timetable booklet and the
+ * route map in the back of the seat pocket. That means paper stock rather than
+ * white, ink rather than black, hairline rules doing the structural work, and
+ * color appearing only as a flat livery block — never as a gradient or a glow.
+ * Corners are square everywhere; nothing here was ever rounded by a printer.
+ *
+ * Every figure is set in tabular numerals. Airline management is an annual
+ * report with a map attached, and the columns have to line up.
+ */
+
+/*
+ * Inter, self-hosted. Latin subset only (48 KB), variable weight, so one file
+ * covers every weight the interface uses and nothing is fetched at runtime — the
+ * same reasoning that keeps the map in SVG and the sound synthesised.
+ *
+ * SIL Open Font License 1.1 — see src/assets/fonts/LICENSE.
+ *
+ * Inter is the closest open face to the Frutiger/DIN signage grotesques this
+ * interface is imitating, once its defaults are corrected: `cv05`/`cv08` give the
+ * single-storey l and the straight-tailed u that read as signage rather than as
+ * a UI font, and `tnum` is switched on wherever a figure has to line up.
+ */
+@font-face {
+  font-family: 'Air Honcho Sans';
+  src: url('./assets/fonts/inter-latin-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Paper stock and ink */
+  --paper: #f7f6f2;
+  --paper-sunk: #f1efe9;
+  --ink: #14181d;
+  --ink-soft: #5c636b;
+  --ink-faint: #939aa1;
+
+  /* Rules: hairline for rows, solid for structure */
+  --rule: #c7cac3;
+  --rule-hair: #dedfd8;
+
+  /* The map plate is printed in two more inks. Land sits lighter and warmer
+     than the water so the coastline reads without needing a heavy stroke. */
+  --ocean: #c9d6d9;
+  --land: #f5f2ea;
+  --coast: #8d978f;
+  --city: #97a09a;
+
+  /*
+   * Semantic colour. Five tokens carry every meaning on the board; anything else
+   * is paper, ink or a rule.
+   *
+   *   --carrier   the player's livery. Navy, one flat block, never a gradient.
+   *   --loss      bad news, and ONLY bad news.
+   *
+   * The rule for --loss, in one place so it cannot drift: it marks a figure whose
+   * SIGN IS INFORMATION — net income, cash, a margin, a delta, passengers turned
+   * away. It does not mark a figure that is negative by construction: a cost line
+   * is always negative, so colouring it says nothing and turns the quarterly strip
+   * into a wall of red, which is the same uniformity problem in a louder key.
+   *
+   * There is no gain colour. Nothing on this board is green — a good quarter is
+   * simply set in ink, the way a printed annual report sets it.
+   */
+  --carrier: #1b3a6b;
+  /* Retained as the name the map and masthead already use for the player's block.
+     One value, two names; --carrier is the one to reach for in new work. */
+  --livery: var(--carrier);
+  --loss: #a3341c;
+
+  /*
+   * Two typefaces, two jobs, and the division is absolute.
+   *
+   * The grotesque carries everything a person READS: labels, headers, buttons,
+   * prose, the names of cities and carriers. The monospace carries only what a
+   * person COMPARES — figures in a column that have to line up. When both jobs
+   * were set in the monospace the board had one texture and therefore no
+   * hierarchy: a section heading and a dollar figure asked for the eye equally.
+   */
+  --font-ui: 'Air Honcho Sans', 'Helvetica Neue', ui-sans-serif, system-ui, Arial, sans-serif;
+  --font-data: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /*
+   * The type scale. Three roles, defined once and consumed everywhere; changing a
+   * value here changes it on every panel, which is the point.
+   *
+   *   label   names a thing        — small, tracked wide, soft ink
+   *   header  opens a section      — smaller still, tracked widest, full ink
+   *   figure  states a number      — monospace, tabular, near-black
+   *
+   * Labels are tracked to 0.08em and set in soft ink so they recede behind the
+   * figures they caption. Headers are tracked further and sit at full weight,
+   * because a header's job is to be found when scanning, not read in sequence.
+   */
+  --label-size: 10px;
+  --label-tracking: 0.08em;
+  --label-weight: 550;
+  --label-ink: var(--ink-soft);
+
+  --header-size: 10.5px;
+  --header-tracking: 0.15em;
+  --header-weight: 650;
+
+  --figure-size: 13px;
+  --figure-size-lg: 17px;
+  --figure-weight: 450;
+
+  /* The wordmark is the logo, so it is specified as one. */
+  --wordmark-size: 16px;
+  --wordmark-tracking: 0.3em;
+  --wordmark-weight: 600;
+
+  --rail-width: 330px;
+  /* Masthead plus the inspector's minimum — the vertical space the map may not
+     claim. Keep in step with `.chart`'s second row. */
+  --chrome-reserve: 270px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  /* cv05/cv08 pull Inter toward the signage grotesques this board imitates;
+     tnum keeps any figure that lands in running text on the same rhythm as the
+     columns. Harmless on the fallback stack, which simply ignores them. */
+  font-feature-settings: 'cv05' 1, 'cv08' 1, 'tnum' 1, 'ss03' 1;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--livery);
+  outline-offset: 2px;
+}
+
+/* --- Shell ---------------------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+}
+
+/* --- Masthead ------------------------------------------------------------- */
+/* The livery block is the one place color is allowed to be loud: a solid
+   fuselage panel with the name reversed out of it. */
+
+.masthead {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 24px;
+  background: var(--paper);
+}
+
+/*
+ * The cheatline. On an aircraft this is the stripe that runs the length of the
+ * fuselage and ties the nose to the tail; here it runs under the wordmark and out
+ * across the masthead, doing the job the old 2px border did but reading as livery
+ * rather than as a box edge. Two tones, the second at a fraction of the first —
+ * the standard way a cheatline is drawn, and the reason it reads as an airline
+ * and not as an underline.
+ */
+.cheatline {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 5px;
+  /* Flat stripe first, two-tone second. One unsupported colour invalidates the
+     WHOLE background declaration, and this rule replaced the masthead's border —
+     so without a fallback an older engine would show no edge at all rather than a
+     plainer one. A single-tone cheatline is the correct degraded form. */
+  background: var(--carrier);
+  background: linear-gradient(
+    to bottom,
+    var(--carrier) 0 3px,
+    color-mix(in srgb, var(--carrier) 35%, var(--paper)) 3px 5px
+  );
+}
+
+.livery {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-right: 20px;
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.livery-mark {
+  width: 10px;
+  align-self: stretch;
+  background: var(--paper);
+  opacity: 0.85;
+}
+
+/*
+ * The wordmark, as a lockup rather than a line of tracked capitals.
+ *
+ * "Air" is the category and "Honcho" is the name, which is exactly the split the
+ * flag carriers letter — Air France, Air Canada — so the mark says it that way:
+ * the category light, wide and half a step back, the name heavy and tight. Set as
+ * one uniform run it read as a label with the tracking turned up, which is what
+ * it was.
+ *
+ * Optically sized against the cheatline rather than the box: the stripe is 5px, so
+ * the mark sits on a 16px cap height and the whole block is padded to leave the
+ * cheatline a clear run beneath it instead of crowding it.
+ */
+.livery h1 {
+  margin: 0;
+  padding: 15px 0 16px;
+  display: flex;
+  align-items: baseline;
+  font-family: var(--font-ui);
+  font-size: var(--wordmark-size);
+  line-height: 1;
+  text-transform: uppercase;
+  /* ss03 gives the flatter, wider capitals the signage faces use. */
+  font-feature-settings: 'cv05' 1, 'cv08' 1, 'ss03' 1;
+  white-space: nowrap;
+}
+
+.wordmark-air {
+  font-weight: 400;
+  font-size: 0.84em;
+  letter-spacing: 0.34em;
+  /* Its own tracking supplies the gap on the right; the word space between the
+     two spans does not, because the name resets tracking to its own. */
+  margin-right: 0.16em;
+  /* Held just off full strength so the name carries the mark. */
+  opacity: 0.72;
+}
+
+.wordmark-name {
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  /* The last letter's tracking would otherwise push the mark off its own panel. */
+  margin-right: -0.13em;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0 4px 0 0;
+}
+
+.status-field {
+  padding: 8px 18px;
+  border-left: 1px solid var(--rule-hair);
+  text-align: right;
+}
+
+.status-field dt {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--label-ink);
+}
+
+.status-field dd {
+  margin: 2px 0 0;
+  font-family: var(--font-data);
+  font-size: var(--figure-size-lg);
+  font-weight: var(--figure-weight);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.is-negative {
+  color: var(--loss);
+}
+
+/* --- Board ---------------------------------------------------------------- */
+
+.board {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.rail {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  /* Grid items default to `min-height: auto`, which refuses to shrink below
+     their content. Without this the growing fleet list pushed the whole board
+     taller than the viewport and the page scrolled. */
+  min-height: 0;
+  /* Keeps the rail's own box on its 330px track. Note this does NOT contain the
+     children — `.rail-scroll` contains itself (an `overflow-y: auto` box computes
+     `overflow-x` to auto too), but `.rail-foot` has no overflow of its own, which
+     is why an over-wide row of buttons there spilled under the chart. The fix for
+     that is the row not being over-wide: see `.file-actions`. */
+  min-width: 0;
+  border-right: 1px solid var(--rule);
+  background: var(--paper-sunk);
+}
+
+.rail-scroll {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panel {
+  padding: 18px 16px 20px;
+}
+
+.panel--fleet {
+  border-top: 1px solid var(--rule);
+}
+
+.panel--conditions .wide-action + .wide-action {
+  margin-top: 6px;
+}
+
+.panel-heading {
+  margin: 0 0 10px;
+  font-family: var(--font-ui);
+  font-size: var(--header-size);
+  font-weight: var(--header-weight);
+  letter-spacing: var(--header-tracking);
+  text-transform: uppercase;
+  color: var(--ink);
+  /* The structural device of a printed timetable: a heavy rule under the heading
+     and hairlines between the rows beneath it. The rule does the work a box used
+     to do, without enclosing anything. */
+  padding-bottom: 5px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.scenario {
+  margin: 0 0 16px;
+  padding: 0 0 14px;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  gap: 8px;
+}
+
+/* An explicit display would otherwise beat the [hidden] user-agent rule. */
+.scenario[hidden] {
+  display: none;
+}
+
+.scenario legend {
+  padding: 0;
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.scenario-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule-hair);
+  cursor: pointer;
+}
+
+.scenario-option:hover {
+  border-color: var(--rule);
+}
+
+.scenario-option:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--paper);
+}
+
+.scenario-option input {
+  grid-row: 1 / span 2;
+  align-self: center;
+  accent-color: var(--ink);
+}
+
+.scenario-name {
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.scenario-note {
+  grid-column: 2;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.hint {
+  margin: 0 0 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  min-height: 3.2em;
+}
+
+.hint.is-alert {
+  color: var(--loss);
+}
+
+/* --- The schedule ledger -------------------------------------------------- */
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger thead th {
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-tracking);
+  text-transform: uppercase;
+  color: var(--label-ink);
+  text-align: left;
+}
+
+.ledger tbody tr {
+  border-bottom: 1px solid var(--rule-hair);
+}
+
+.ledger-row {
+  cursor: pointer;
+}
+
+.ledger-row:hover {
+  background: var(--paper);
+}
+
+.ledger-row.is-selected {
+  background: var(--paper);
+  box-shadow: inset 3px 0 0 var(--carrier);
+}
+
+/* The marker is drawn INSIDE the row, so the first cell has to step out of its
+   way — it was printing the livery bar straight through the "N" of NYC-LAX. */
+.ledger-row.is-selected .cell-sector {
+  padding-left: 9px;
+}
+
+.ledger-row.is-selected .cell-sector {
+  font-weight: 600;
+}
+
+.ledger td,
+.ledger tbody th {
+  padding: 7px 0;
+  font-weight: 400;
+  text-align: left;
+}
+
+.cell-sector {
+  letter-spacing: 0.04em;
+}
+
+.cell-num {
+  text-align: right;
+  padding-right: 12px !important;
+  color: var(--ink-soft);
+}
+
+
+
+.ledger-empty {
+  padding: 14px 0 !important;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.fleet-count {
+  display: inline-block;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* --- Controls ------------------------------------------------------------- */
+
+.step {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.step:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.step:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.step.drop:hover:not(:disabled) {
+  border-color: var(--loss);
+  background: var(--loss);
+}
+
+.rail-foot {
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.commit {
+  display: block;
+  width: 100%;
+  padding: 13px 12px;
+  border: none;
+  background: var(--livery);
+  color: var(--paper);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.commit:hover:not(:disabled) {
+  background: var(--ink);
+}
+
+.commit:disabled {
+  background: var(--rule);
+  color: var(--paper);
+  cursor: default;
+}
+
+/* A grid, not a flex row. These are `nowrap` uppercase labels that cannot shrink
+   below their text, so as a single flex line they widened the rail past its fixed
+   `--rail-width` and spilled underneath the chart. Fixed columns wrap to a second
+   row instead, and stay the same size however many actions live here. */
+.file-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.file-actions button {
+  /* Never let a long label push the column wider than its share of the rail —
+     the grid decides the width, the text fits inside it. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 7px 2px;
+  /* File actions are the quietest controls on the board — a rule under the label
+     is all the affordance they need next to a solid-filled primary. */
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.file-actions button:hover:not(:disabled) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.file-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* --- Conditions ----------------------------------------------------------- */
+
+.panel--conditions {
+  border-top: 1px solid var(--rule);
+}
+
+.conditions-list {
+  margin-bottom: 10px;
+}
+
+.condition-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule-hair);
+  font-size: 11.5px;
+}
+
+.condition-name {
+  flex: 1;
+  font-family: var(--font-ui);
+}
+
+.condition-value {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+
+
+.condition-pending {
+  padding-left: 8px;
+  color: var(--ink-faint);
+  box-shadow: inset 2px 0 0 var(--rule);
+}
+
+.condition-pending .condition-name {
+  color: var(--ink-faint);
+}
+
+/* --- The competition ------------------------------------------------------ */
+
+.panel--rivals {
+  border-top: 1px solid var(--rule);
+}
+
+.rivals-list {
+  margin-bottom: 4px;
+}
+
+.rival-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule-hair);
+  font-size: 12px;
+}
+
+.rival-row.is-gone {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.rival-swatch {
+  width: 9px;
+  height: 9px;
+  flex: none;
+}
+
+.rival-name {
+  flex: 1;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+}
+
+/* What the carrier is worth. Tabular and right-aligned in a fixed column so the
+   figures line up down the list however long the name beside them is — the
+   contested count sits between, and would otherwise ragged them. */
+.rival-value {
+  flex: none;
+  min-width: 62px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+/* A rival you can pin. The row is a control, so it says so on hover — but only
+   just: this list is scanned far more often than it is clicked. */
+.rival-row.is-pickable {
+  cursor: pointer;
+}
+
+.rival-row.is-pickable:hover,
+.rival-row.is-pickable:focus-visible {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  outline: none;
+}
+
+.rival-row.is-pinned {
+  /* The same marker the schedule uses for a selected sector: a 3px livery bar
+     drawn inside the row, with the content stepping clear of it. At 2px and no
+     padding it was printing straight up against the swatch. */
+  box-shadow: inset 3px 0 0 var(--pin, var(--ink));
+  padding-left: 9px;
+}
+
+.rival-row.is-pinned .rival-name {
+  font-weight: 600;
+}
+
+.rival-against {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.rival-against.is-alert {
+  color: var(--loss);
+}
+
+.rivals-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.rival-tag {
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+.market tr.is-you th,
+.market tr.is-you td {
+  font-weight: 600;
+  background: var(--paper-sunk);
+}
+
+.market tr.is-gone {
+  opacity: 0.5;
+}
+
+/* --- Fleet panel ---------------------------------------------------------- */
+
+.fleet-list {
+  margin-bottom: 12px;
+}
+
+.fleet-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule-hair);
+  font-family: var(--font-data);
+  font-size: 12px;
+}
+
+.fleet-name {
+  flex: 1;
+  /* "2x Tarn 42" is a name, so it takes the grotesque like every other name. The
+     age and tenure beside it are figures and stay in the monospace. */
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+.fleet-tenure {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.fleet-age {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.fleet-idle {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+}
+
+.fleet-action {
+  display: block;
+  width: 100%;
+  margin: 4px 0 8px;
+  padding: 5px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.fleet-action:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.fleet-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fleet-idle.is-alert {
+  color: var(--loss);
+}
+
+.fleet-empty {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.wide-action {
+  display: block;
+  width: 100%;
+  padding: 9px 4px;
+  /* A secondary action is a line of type over a rule, the way a timetable prints
+     a footnote — not a boxed control competing with the primary one. */
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.wide-action:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.wide-action:disabled {
+  border-color: var(--rule);
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+/*
+ * The treasury's four capital actions, as a row of controls rather than four
+ * full-width rules stacked down the sheet. Stacked, they read as table rows —
+ * centred type over a hairline is the same shape this interface uses for section
+ * dividers, so the four most consequential buttons on the board looked like a
+ * contents list. Boxed and side by side they read as what they are, and the
+ * primary one carries the livery so the eye lands on it first.
+ */
+.treasury-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.treasury-actions .wide-action,
+.treasury-actions .wide-action--quiet {
+  margin-top: 0;
+  padding: 11px 8px;
+  border: 1px solid var(--rule);
+  border-bottom-width: 1px;
+}
+
+.treasury-actions .wide-action--primary {
+  border-color: var(--livery);
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.treasury-actions .wide-action--primary:hover:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.treasury-actions .wide-action:hover:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.treasury-actions .wide-action:disabled {
+  border-color: var(--rule-hair);
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 720px) {
+  .treasury-actions {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.wide-action--quiet {
+  margin-top: 8px;
+  border-color: var(--rule);
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.wide-action--quiet:hover {
+  border-color: var(--loss);
+  background: var(--loss);
+  color: var(--paper);
+}
+
+/* --- Aircraft market sheet ------------------------------------------------ */
+
+.sheet {
+  width: min(880px, 92vw);
+  max-height: 86vh;
+  padding: 0;
+  border: 2px solid var(--livery);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.sheet::backdrop {
+  background: rgb(20 24 29 / 0.45);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.sheet-head h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.sheet-close {
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--paper);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sheet-note {
+  margin: 0;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.sheet-note.is-alert {
+  color: var(--loss);
+  font-weight: 500;
+}
+
+.sheet-body {
+  max-height: 58vh;
+  overflow-y: auto;
+  padding: 0 18px 18px;
+}
+
+/* --- The quarterly board briefing ---------------------------------------- */
+
+.briefing {
+  width: min(520px, 94vw);
+  max-height: 88vh;
+  padding: 0;
+  border: 2px solid var(--livery);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.briefing::backdrop {
+  background: rgb(20 24 29 / 0.45);
+}
+
+.briefing-head {
+  padding: 18px 24px 14px;
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.briefing-eyebrow {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.briefing-title {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.briefing-body {
+  padding: 18px 24px 4px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.brief-alerts {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.brief-alert {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  border-left: 3px solid var(--loss);
+  background: var(--paper-sunk);
+}
+
+.brief-alert--danger {
+  border-left-color: var(--loss);
+  font-weight: 500;
+}
+
+.brief-alert--warn {
+  border-left-color: var(--ink-soft);
+}
+
+.brief-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.brief-headline-label {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.brief-headline.is-negative {
+  color: var(--loss);
+}
+
+/* --- Split-flap (solari) figure: the departure-board reveal ---------------- */
+.flap {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: baseline;
+}
+
+.flap-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0.74em;
+  padding: 0.1em 0.04em 0.14em;
+  color: var(--ink);
+  background: var(--paper-sunk);
+  border-radius: 2px;
+  /* The flap seam: a hairline across the middle where the leaf folds, plus a
+     printed top-light / bottom-shadow so each cell reads as a physical tile. */
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(50% - 0.5px),
+    var(--rule) calc(50% - 0.5px),
+    var(--rule) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 1px rgba(20, 24, 29, 0.06);
+}
+
+.brief-headline.is-negative .flap-cell {
+  color: var(--loss);
+}
+
+.flap-cell.is-flapping {
+  color: var(--ink-faint);
+}
+
+/* A settled cell drops its top leaf into place. */
+.flap-cell.is-settling {
+  animation: flap-land 150ms cubic-bezier(0.3, 0.9, 0.4, 1);
+  transform-origin: center top;
+}
+
+@keyframes flap-land {
+  0% {
+    transform: translateY(-10%) scaleY(0.8);
+  }
+  60% {
+    transform: translateY(1%) scaleY(1.03);
+  }
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flap-cell.is-settling {
+    animation: none;
+  }
+}
+
+.brief-section {
+  margin: 0 0 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.brief-section-title {
+  margin: 0 0 7px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.brief-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.brief-list li {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink);
+  padding-left: 12px;
+  position: relative;
+}
+
+.brief-list li::before {
+  content: '·';
+  position: absolute;
+  left: 2px;
+  color: var(--ink-faint);
+}
+
+.briefing-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px 20px;
+}
+
+.briefing-actions .commit {
+  min-width: 140px;
+}
+
+/* --- The end-of-game verdict --------------------------------------------- */
+
+.verdict {
+  width: min(460px, 92vw);
+  padding: 0;
+  border: none;
+  background: var(--paper);
+  color: var(--ink);
+  /* A ruled accent along the top, colored by the outcome. */
+  border-top: 6px solid var(--livery);
+}
+
+.verdict.is-lost {
+  border-top-color: var(--loss);
+}
+
+.verdict::backdrop {
+  background: rgb(20 24 29 / 0.55);
+}
+
+.verdict-eyebrow {
+  margin: 0;
+  padding: 26px 32px 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--livery);
+}
+
+.verdict.is-lost .verdict-eyebrow {
+  color: var(--loss);
+}
+
+.verdict-title {
+  margin: 6px 0 0;
+  padding: 0 32px;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.verdict-reason {
+  margin: 12px 0 0;
+  padding: 0 32px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.verdict-figures {
+  margin: 22px 0 0;
+  padding: 18px 32px;
+  border-top: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px 24px;
+  font-size: 13px;
+}
+
+.verdict-figures dt {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  align-self: center;
+}
+
+.verdict-figures dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.verdict-actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 32px 28px;
+}
+
+.verdict-actions .commit,
+.verdict-actions .wide-action {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.market {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.market thead th {
+  position: sticky;
+  top: 0;
+  padding: 12px 8px 6px;
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: left;
+}
+
+.market tbody tr {
+  border-bottom: 1px solid var(--rule-hair);
+}
+
+.market td,
+.market tbody th {
+  padding: 7px 8px;
+  /* A program name and a carrier name are NAMES — read, not compared — so they
+     take the grotesque like every other name on the board. They were the last
+     run of prose still set in the monospace after the type pass. */
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+
+/* --- First-turn coaching: a gate-check note, not a tutorial ---------------- */
+.coach {
+  position: fixed;
+  z-index: 40;
+  max-width: 300px;
+  padding: 11px 13px 12px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 0 2px 6px rgba(20, 24, 29, 0.16);
+  /* A note points AT a control, so it must never be able to swallow a click meant
+     for one. The rail reflows after the note is placed — panels fill, fonts land —
+     and an anchor can end up underneath it; without this, the note telling you to
+     lease an aircraft sat on top of the Acquire button and ate the click. Only the
+     note's own button takes pointer events. */
+  pointer-events: none;
+}
+
+.coach[hidden] {
+  display: none;
+}
+
+.coach-step {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink-faint);
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.coach-text {
+  margin: 0 0 9px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.coach-dismiss {
+  pointer-events: auto;
+  padding: 3px 2px;
+  /* A rule, not a box — the same idiom as every other secondary control since the
+     design pass. It was the last boxed button left on the board. */
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.coach-dismiss:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+/* --- Save slots: a filed record, one line per save ------------------------- */
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+}
+
+.slot-row {
+  display: grid;
+  grid-template-columns: minmax(7em, auto) 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--rule-hair);
+}
+
+.slot-name {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.slot-detail {
+  color: var(--ink-soft);
+  font-family: var(--font-data);
+  font-size: 11.5px;
+}
+
+.slot-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* A figure that is present but no longer actionable — a float too small to buy
+   control from, for instance. */
+.market td.is-faint {
+  color: var(--ink-faint);
+}
+
+.market-name {
+  letter-spacing: 0.04em;
+}
+
+.market-class {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.market-actions {
+  display: flex;
+  gap: 5px;
+  justify-content: flex-end;
+  padding-right: 0 !important;
+}
+
+.market-buy {
+  padding: 5px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.market-buy:hover:not(:disabled) {
+  border-color: var(--livery);
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.market-buy:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* --- Aircraft market: the fleet catalogue ---------------------------------- */
+
+.market-catalog {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .market-catalog {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* An estate sale under the card: a different proposition from buy-or-lease, with
+   a clock on it. Loss ink because it is somebody's failure, and the player should
+   feel that rather than just see a discount. */
+.ac-distressed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--rule-hair);
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--loss);
+}
+
+/* A colophon, not a warning. It sits under the catalogue, set small and soft below
+   a hairline, so it reads as the fine print at the foot of a timetable page —
+   there when you look for it, silent when you are shopping for a jet.
+   The rule spans the full catalogue and the text does not: a measure this small
+   needs about 60 characters to stay readable, but a rule that stops halfway
+   across the sheet reads as a mistake. */
+.market-colophon {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.market-colophon p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+.ac-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 14px 2px 18px;
+  /* A rule under each card rather than a box around it — the same idiom the rest
+     of the board uses since the design pass. Twenty boxed cards in a grid read as
+     a spreadsheet; twenty ruled entries read as a catalogue. */
+  border: 0;
+  border-bottom: 1px solid var(--rule-hair);
+  background: transparent;
+}
+
+.ac-card.is-gone {
+  opacity: 0.6;
+}
+
+.ac-ident {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ac-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ac-sub {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.ac-specs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 10px;
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule-hair);
+  border-bottom: 1px solid var(--rule-hair);
+}
+
+.ac-spec {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  cursor: help;
+}
+
+.ac-spec dt {
+  font-family: var(--font-ui);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.ac-spec dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+
+.ac-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 26px;
+}
+
+.ac-soon {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* --- Chart ---------------------------------------------------------------- */
+
+.chart {
+  display: grid;
+  /* The inspector gets a fixed share of the column and scrolls inside it, so the
+     map plate holds exactly the same position for the whole game. With an `auto`
+     inspector the map resized every time the panel's content changed — notably
+     when acquiring an aircraft cleared the sector selection — and the plate
+     visibly jumped down the page. */
+  grid-template-rows: auto minmax(200px, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.map-frame {
+  position: relative; /* positioning context for the zoom controls overlay */
+  /* The plate is positioned, not flowed. An SVG with a viewBox reports an
+     intrinsic aspect ratio, and `height: 100%` against a grid row of indefinite
+     height does not resolve — so in flow it fell back to its natural height,
+     pushed the row past the viewport and made the whole shell scroll. Taking it
+     out of flow means the frame is sized purely by its grid row and the map can
+     never push anything. */
+  /* Hug the plate's own proportions. This is also what keeps the map still: an
+     SVG with a viewBox reports an intrinsic aspect ratio, so `height: 100%`
+     against a row of *indefinite* height did not resolve and the plate fell back
+     to its natural height — pushing the row past the viewport and shifting
+     whenever the panel below it changed size. Giving the frame a definite height
+     of its own fixes both the drift and the bands of empty paper. */
+  aspect-ratio: var(--map-aspect, 2.535);
+  /* On a wide, short window the aspect height alone would exceed the space the
+     row has, and the plate would spill over the panel beneath it. Cap it at
+     whatever is left after the masthead and the inspector's minimum; when the
+     cap bites, the plate letterboxes side-to-side instead of overlapping. */
+  max-height: calc(100vh - var(--chrome-reserve));
+  min-height: 0;
+  overflow: hidden;
+  /* Paper, not water: the plate is a printed object with a margin around it. */
+  padding: 10px;
+  background: var(--paper);
+}
+
+.map {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none; /* let a drag pan the plate instead of scrolling the page */
+}
+
+.map:active {
+  cursor: grabbing;
+}
+
+.map.over-city {
+  cursor: pointer;
+}
+
+/* Zoom controls: one wayfinding block, hairline-divided, over the plate's corner. */
+.map-zoom {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(20, 24, 29, 0.14);
+}
+
+.map-zoom-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-zoom-btn + .map-zoom-btn {
+  border-top: 1px solid var(--rule);
+}
+
+.map-zoom-btn:hover {
+  background: var(--paper-sunk);
+}
+
+.map-zoom-btn:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.map-zoom-btn:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+  background: var(--paper);
+}
+
+.map-zoom-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ocean {
+  fill: var(--ocean);
+}
+
+.land {
+  fill: var(--land);
+  stroke: var(--coast);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The click target for a route line: same curve, no paint, a little wider than
+   the paint so a 1.4px arc is not something to hit exactly. Only a LITTLE wider —
+   at 12 the targets overlapped so heavily near a hub that a click on one line
+   was answered by whichever of its neighbours happened to be drawn last. */
+/*
+ * A row in a carrier's route list is a control: it picks that sector out on the
+ * map. It needs to LOOK picked once it is — the first version of this styling
+ * never reached the stylesheet (an anchored edit that matched nothing), so a
+ * click changed the map and left the list identical, which reads as a dead
+ * control. The bar carries the carrier's own colour, so the row and the line on
+ * the map are visibly the same object.
+ */
+.board-table tr.is-pickable {
+  cursor: pointer;
+}
+
+.board-table tr.is-pickable:hover,
+.board-table tr.is-pickable:focus-visible {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  outline: none;
+}
+
+.board-table tr.is-picked {
+  background: var(--paper-sunk, color-mix(in srgb, var(--ink) 9%, transparent));
+}
+
+.board-table tr.is-picked th:first-child {
+  box-shadow: inset 3px 0 0 var(--pick, var(--ink));
+  padding-left: 9px;
+  font-weight: 700;
+}
+
+/* Everything that is not the sector you asked for, while you are asking. Pushed
+   well back rather than hidden: the network it belongs to is still the context
+   that makes the one line mean something. */
+.arc.is-route-muted {
+  opacity: 0.14 !important;
+}
+
+.arc-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.arc {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/*
+ * The player's network, weighted by what each sector earns against the rest of it.
+ * Three tiers is enough to answer "where am I strong" from across the room, and
+ * more would read as noise at this stroke scale.
+ */
+.arc-w0 { stroke-width: 1; }
+.arc-w1 { stroke-width: 1.8; }
+.arc-w2 { stroke-width: 2.8; }
+
+/*
+ * Someone else's network: present, and legible if you look for it, but never
+ * competing with yours for the first glance. Thin and well back in the stack.
+ */
+.arc-rival {
+  /*
+   * Raised a notch from 0.7/0.30. The design pass pushed rivals back to stop them
+   * competing with the player's network for the first glance, and overshot: an
+   * 18-sector, 100-aircraft world read as an empty map at world zoom, which is
+   * both wrong and a shame now that the field actually contests things. The
+   * player's arcs still carry 1.4-2.8 stroke at full opacity against this, so
+   * dominance stays unmistakable — the gap is 2-4x in weight rather than 4-9x.
+   */
+  stroke-width: 0.95;
+  opacity: 0.46;
+  transition: opacity 120ms linear, stroke-width 120ms linear;
+}
+
+/* The one moment a rival is allowed forward: its whole network, on hover. */
+/*
+ * A sector that has been opened but is not flying yet: metal on order, or nothing
+ * assigned to it. Dashed, because it is a plan rather than a service — the map
+ * used to draw these identically to a served route, so a rival that opened a
+ * sector and placed an order appeared to be flying it a quarter or two before it
+ * was, and the market board underneath showed nobody.
+ *
+ * The dash is set in user units against the same viewBox the arcs are drawn in,
+ * so it holds its proportions as the map zooms.
+ */
+/*
+ * One sector picked out of a carrier's route list.
+ *
+ * Deliberately louder than the carrier focus it sits inside: that lights a whole
+ * network so you can see its shape, and this answers "which of those lines is
+ * TYO-HKG". Full opacity and a heavy stroke beat both, and the dash is dropped so
+ * a sector that is not flying yet still reads clearly when it is the one asked
+ * for. `!important` because the weight tiers and the rival stroke are all single
+ * classes and there is no ordering of them that keeps a deliberate pick on top.
+ */
+.arc.is-route-focus {
+  opacity: 1 !important;
+  stroke-width: 3.4 !important;
+  stroke-dasharray: none !important;
+}
+
+.arc-dormant {
+  stroke-dasharray: 1.6 1.4;
+  /*
+   * YOUR dormant sector is a thing you just did, and the map is the only
+   * confirmation you get — so it stays clearly legible and lets the dash carry
+   * the "not flying yet" on its own. Calibrated at 0.42 first, which was the
+   * right weight for a rival's announced route and far too quiet for your own:
+   * combined with the thinnest weight tier it came out as a barely-there dotted
+   * line, and reads as the click having failed.
+   */
+  opacity: 0.8;
+}
+
+/* A rival's announced-but-not-flying route stays well back: it is intelligence,
+   not service, and it must not compete with your own network for the glance. */
+.arc-rival.arc-dormant {
+  opacity: 0.28;
+}
+
+.arc-rival.is-carrier-focus {
+  opacity: 1;
+  stroke-width: 1.4;
+}
+
+.arc-pending {
+  stroke: var(--ink);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+}
+
+/* A just-opened route draws itself along the great circle, origin to destination.
+   pathLength="1" on the element normalizes the dash math regardless of arc length. */
+.arc-drawin {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: arc-draw 620ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes arc-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc-drawin {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+.city-mark {
+  fill: var(--city);
+  transition: fill 120ms linear;
+}
+
+
+.city-served .city-mark {
+  fill: var(--livery);
+}
+
+.city-origin .city-mark {
+  fill: var(--ink);
+  stroke: var(--paper);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.city:hover .city-mark {
+  fill: var(--ink);
+}
+
+.city-unavailable .city-mark {
+  opacity: 0.25;
+}
+
+.city-unavailable .city-hit {
+  cursor: not-allowed;
+}
+
+.city-label {
+  font-family: var(--font-ui);
+  font-size: 5.6px;
+  letter-spacing: 0.06em;
+  fill: var(--ink-soft);
+  paint-order: stroke;
+  stroke: var(--ocean);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.city-label-strong {
+  font-size: 7.4px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  fill: var(--ink);
+}
+
+/* --- Inspector ------------------------------------------------------------ */
+/* The sector dossier: every component the sim used, laid out as a statement. */
+
+.inspector {
+  padding: 12px 20px 14px;
+  border-top: 1px solid var(--rule);
+  background: var(--paper);
+  /* Height comes from the grid row above; anything taller scrolls in place
+     rather than resizing the map. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.inspector-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.inspector-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.inspector-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.inspector-sub {
+  flex: 1;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.inspector-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 26px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.figures--ops {
+  border-top: none;
+  padding-top: 0;
+}
+
+.figure dt {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.figure dd {
+  margin: 1px 0 0;
+  font-family: var(--font-data);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.figure-total {
+  padding-left: 18px;
+  border-left: 2px solid var(--ink);
+}
+
+.figure-total dd {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* --- Posture ------------------------------------------------------------- */
+
+.posture {
+  display: flex;
+}
+
+/*
+ * What the notch under the cursor would do. Sits under the controls, quiet and
+ * monospaced-figure, because it changes as the cursor moves and a loud line that
+ * redraws five times a second is unreadable.
+ */
+/* Somebody on their way into this market. Not a loss yet — nothing of yours has
+   moved — so it sits in the ordinary ink and lets the words carry the warning. */
+.sector-incoming {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+/* A sector shouting for aircraft. Rule above, loss ink, one line — the same
+   register as the rest of the board, not a callout box. */
+.sector-flag {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule-hair);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--loss);
+}
+
+.posture-preview {
+  margin: 8px 0 0;
+  min-height: 1.5em;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.posture-option {
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-right-width: 0;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.posture-option:last-child {
+  border-right-width: 1px;
+}
+
+.posture-option:hover {
+  color: var(--ink);
+}
+
+.posture-option.is-active {
+  background: var(--livery);
+  border-color: var(--livery);
+  color: var(--paper);
+}
+
+.drop-action {
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.drop-action:hover {
+  border-color: var(--loss);
+  background: var(--loss);
+  color: var(--paper);
+}
+
+/* --- Market board -------------------------------------------------------- */
+
+.market-board {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.board-table {
+  width: 100%;
+  /* Wide enough for eleven columns without the money breaking across lines;
+     still bounded so it does not sprawl on an ultrawide display. */
+  max-width: 940px;
+  margin-top: 6px;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-table thead th {
+  padding: 0 8px 4px 0;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-ui);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: left;
+}
+
+.board-table thead th.cell-num {
+  text-align: right;
+}
+
+/* A figure must never wrap: "−" on one line and "$10.9M" on the next reads as
+   a different number entirely. */
+.board-table td.cell-num,
+.board-table thead th.cell-num {
+  white-space: nowrap;
+}
+
+.board-table tbody th {
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.board-table tbody tr {
+  border-bottom: 1px solid var(--rule-hair);
+}
+
+.board-table td,
+.board-table tbody th {
+  padding: 5px 8px 5px 0;
+}
+
+.board-table tr.is-you th,
+.board-table tr.is-you td {
+  font-weight: 600;
+  background: var(--paper-sunk);
+}
+
+/* --- Aircraft assignment -------------------------------------------------- */
+
+.assign-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.assign-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.assign-label {
+  /* Separates from whatever follows wherever it is used. It sat inside a flex
+     container with a gap in one place and a plain block in another, so the same
+     label read "ON THIS SECTOR Nothing assigned" in one panel and
+     "ON THIS MARKETYou have it to yourself" in the next. */
+  margin-right: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.assign-empty {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.chip {
+  /*
+   * A chip is a name with a key beside it, not a pill. The square is the carrier's
+   * livery — the same block that flies its arcs on the map — so a glance connects
+   * the two without a legend. Filled means held; hollow means available.
+   */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.chip::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  background: var(--chip-key, var(--carrier));
+  box-shadow: inset 0 0 0 1px var(--chip-key, var(--carrier));
+}
+
+/* Available rather than held: the same key, drawn hollow. */
+.chip-add::before {
+  background: transparent;
+}
+
+.chip:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.chip:disabled::before {
+  --chip-key: var(--rule);
+}
+
+.chip:hover:not(:disabled) {
+  color: var(--loss);
+  text-decoration: underline;
+  --chip-key: var(--loss);
+}
+
+.chip-add {
+  background: transparent;
+  border-color: var(--rule);
+  color: var(--ink-soft);
+  border-style: dashed;
+}
+
+.chip-add:hover:not(:disabled) {
+  background: var(--livery);
+  border-color: var(--livery);
+  border-style: solid;
+  color: var(--paper);
+}
+
+.chip-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --- Narrow viewports ----------------------------------------------------- */
+/* Desktop first, per the design brief. Below the rail's comfortable width the
+   board stacks; the map keeps a fixed aspect so it stays readable. */
+
+@media (max-width: 900px) {
+  html,
+  body,
+  .app {
+    height: auto;
+  }
+
+  .board {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    border-right: none;
+    border-top: 1px solid var(--rule);
+  }
+
+  .panel {
+    overflow-y: visible;
+  }
+
+  .map-frame {
+    aspect-ratio: 1000 / 395;
+  }
+
+  .masthead {
+    flex-wrap: wrap;
+  }
+
+  .status {
+    flex: 1;
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* --- Technology disclosure ------------------------------------------------ */
+/* A row on the market board opens to show what that carrier has bought and what
+   it is earning them. Kept flat and ruled, like the rest of the sheet. */
+
+.board-table tr.is-expandable {
+  cursor: pointer;
+}
+
+.board-table tr.is-expandable:hover td,
+.board-table tr.is-expandable:hover th {
+  background: var(--paper-sunk);
+}
+
+.board-table tr.is-expandable:focus-visible {
+  outline: 2px solid var(--livery);
+  outline-offset: -2px;
+}
+
+/* A small caret in the carrier cell, so the row reads as openable. */
+.board-table tr.is-expandable > th::after {
+  content: '›';
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--ink-faint);
+  transition: transform 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-table tr.is-expandable > th::after {
+    transition: none;
+  }
+}
+
+.board-table tr.is-open > th::after {
+  transform: rotate(90deg);
+}
+
+.board-detail > td {
+  padding: 0 0 12px;
+}
+
+.tech-detail {
+  padding: 10px 12px 12px;
+  border-left: 3px solid var(--rule);
+  background: var(--paper-sunk);
+}
+
+.tech-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.tech-detail-label {
+  font-family: var(--font-ui);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.tech-detail-worth {
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tech-detail-none {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.tech-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+/* A delivered program, keyed the same way an assigned aircraft is: a filled
+   square in the carrier's livery, then the name. No box. */
+.tech-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: var(--ink);
+}
+
+.tech-chip::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  background: var(--carrier);
+}
+
+.tech-chips {
+  column-gap: 14px;
+}
+
+.tech-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
+.tech-effect {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+/* The disclosure also opens inside the sheets, where the table is `.market`. */
+.market tr.is-expandable {
+  cursor: pointer;
+}
+
+.market tr.is-expandable:hover td,
+.market tr.is-expandable:hover th {
+  background: var(--paper-sunk);
+}
+
+.market tr.is-expandable:focus-visible {
+  outline: 2px solid var(--livery);
+  outline-offset: -2px;
+}
+
+.market tr.is-expandable > th::after {
+  content: '›';
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--ink-faint);
+  transition: transform 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market tr.is-expandable > th::after {
+    transition: none;
+  }
+}
+
+.market tr.is-open > th::after {
+  transform: rotate(90deg);
+}
+
+/* Standing panel above the program table in the technology sheet. */
+#tech-standing:not(:empty) {
+  margin: 0 20px 14px;
+}
+
+/* --- Quarterly detail in the competition sheet ---------------------------- */
+
+.quarter-detail {
+  padding: 10px 12px 12px;
+  border-left: 3px solid var(--rule);
+  background: var(--paper-sunk);
+  margin-bottom: 6px;
+}
+
+.quarter-detail .figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin: 0;
+}
+
+.quarter-trend {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.quarter-trend-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.quarter-trend-label {
+  font-family: var(--font-ui);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.quarter-trend-value {
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aircraft not yet launched — shown in the market but not yet orderable. */
+
+/* --- Closing the books ----------------------------------------------------- */
+/*
+ * The quarter settles as a short sequence rather than a repaint: the board dims
+ * while the figures roll, the ledger returns a row at a time, and the briefing
+ * presents itself over the top. Decoration only — every step of it collapses to
+ * nothing under prefers-reduced-motion, and the game plays exactly the same.
+ */
+
+.board.is-settling {
+  /* Dimmed, not disabled: the controls are still live, the eye is just told to
+     wait for the figures. */
+  animation: settle-dim 420ms ease-out;
+}
+
+@keyframes settle-dim {
+  0% { opacity: 1; }
+  22% { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+
+.ledger tbody tr.is-restaged {
+  animation: restage 320ms ease-out backwards;
+  animation-delay: var(--stagger, 0ms);
+}
+
+@keyframes restage {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board.is-settling,
+  .ledger tbody tr.is-restaged {
+    animation: none;
+  }
+}
+
+/* --- First-turn coaching: paging ------------------------------------------ */
+/*
+ * The notes are keyed to game state, so reading ahead never marks anything done
+ * and never gates a step. The arrows exist because a player who wants to know
+ * what is coming should not have to guess — but the sequence still retires on
+ * what you have actually done, and doing the next thing snaps the note back to it.
+ */
+
+.coach-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 3px;
+}
+
+.coach-nav {
+  display: flex;
+  gap: 2px;
+}
+
+.coach-arrow {
+  /* The note itself takes no pointer events, so every control inside it has to
+     claim them back — see the .coach rule. */
+  pointer-events: auto;
+  min-width: 20px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.coach-arrow:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.coach-arrow:disabled {
+  color: var(--rule);
+  cursor: default;
+}
+
+/* Paged away from the step you are actually on: the note is reading material
+   rather than an instruction. The words come from strings.ts; only the border
+   is styling. */
+.coach.is-browsing {
+  border-style: dashed;
+}
+
+/* --- Units ---------------------------------------------------------------- */
+/*
+ * A unit is a word, not a figure, so it is set as one: the grotesque, smaller and
+ * softer, with a thin space of its own. Running "1,500 km" as a single monospace
+ * string gave the unit a full monospace space in front of it and read as a typo
+ * rather than as a measurement.
+ */
+.unit {
+  margin-left: 0.28em;
+  font-family: var(--font-ui);
+  font-size: 0.78em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--ink-soft);
+}
+
+/* --- The rail's lower edge ------------------------------------------------ */
+/*
+ * The panes scroll inside a fixed rail, so whatever sits at the boundary is cut
+ * mid-row against the footer — a carrier's name sliced in half reads as a broken
+ * layout rather than as more content below. A very short fade says "there is more"
+ * the way a printed column does, and costs nothing when the rail is not scrolled.
+ */
+.rail-scroll {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 12px), transparent 100%);
+}
+
+@media (max-width: 900px) {
+  /* Stacked layout: the page scrolls, the rail does not, so nothing to fade. */
+  .rail-scroll {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* --- Ask dialogs: amount and choice ---------------------------------------
+ *
+ * Small sheets for a single decision. They replace window.prompt/confirm, which
+ * could not show a ceiling, a default, or what the number would do — so the
+ * player was typing into the dark and finding out from an error toast.
+ */
+.sheet--ask {
+  width: min(460px, 92vw);
+}
+
+.ask-body {
+  padding: 16px 18px 4px;
+}
+
+/* Presets do the work: most of the time the answer is "a quarter of what I can
+   raise" or "the maximum", and nobody wants to compute that from the figure
+   above. The custom field stays for the times it isn't. */
+.ask-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.ask-preset {
+  padding: 7px 11px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ask-preset:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ask-preset.is-on {
+  border-color: var(--livery);
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.ask-preset:disabled {
+  border-color: var(--rule-hair);
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.ask-field {
+  display: block;
+}
+
+.ask-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.ask-input-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+}
+
+.ask-input-wrap:focus-within {
+  border-color: var(--livery);
+}
+
+.ask-affix {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.ask-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+.ask-input-wrap input:focus {
+  outline: none;
+}
+
+/* The line that makes the number mean something: what it costs, what it leaves,
+   what stake it buys. This is the whole reason these dialogs exist. */
+.ask-preview {
+  margin: 10px 0 0;
+  min-height: 2.6em;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.ask-preview.is-error {
+  color: var(--loss);
+}
+
+.ask-warning {
+  margin: 0;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--rule);
+  /* Flat fallback first: this codebase has already lost a whole declaration to an
+     unsupported color-mix once. See the cheatline in the masthead. */
+  background: var(--paper);
+  background: color-mix(in srgb, var(--loss) 8%, var(--paper));
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--loss);
+}
+
+.ask-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px 16px;
+}
+
+.ask-actions--stack {
+  flex-direction: column;
+}
+
+.ask-cancel,
+.ask-confirm,
+.ask-choice {
+  padding: 10px 16px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ask-confirm {
+  border-color: var(--livery);
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.ask-cancel:hover,
+.ask-choice:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.ask-confirm:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.ask-confirm:disabled {
+  border-color: var(--rule);
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+/* A stacked choice lists its options as full-width rows, primary first, with the
+   consequence of each spelled out under its label. */
+.ask-choice {
+  width: 100%;
+  text-align: left;
+}
+
+.ask-choice--primary {
+  border-color: var(--livery);
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.ask-choice--primary:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.ask-choice small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.75;
+}
+
+/*
+ * A sector proposed but not yet bought.
+ *
+ * Two map clicks used to open a route outright; now they put the pair here and
+ * opening is a deliberate button, because a station somewhere new costs eight
+ * figures and the old gesture spent it without ever showing a number. The itemised
+ * costs are the point of the panel: a single total cannot teach the rule that
+ * sectors hanging off cities you already serve are the cheap ones.
+ */
+.prospect-costs {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-hair);
+}
+
+.prospect-costs li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule-hair);
+  font-size: 12px;
+}
+
+.prospect-cost-label {
+  color: var(--ink-soft);
+}
+
+.prospect-cost-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.prospect-note {
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Commit and cancel, side by side — the same shape the treasury uses for the
+   consequential controls, so the primary one carries the livery. */
+.prospect-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.prospect-actions .wide-action {
+  margin-top: 0;
+  padding: 11px 8px;
+  border: 1px solid var(--rule);
+}
+
+.prospect-actions .wide-action--primary {
+  border-color: var(--livery);
+  background: var(--livery);
+  color: var(--paper);
+}
+
+.prospect-actions .wide-action--primary:hover:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.prospect-actions .wide-action:disabled {
+  border-color: var(--rule-hair);
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+/*
+ * The new-game screen.
+ *
+ * The board used to open empty, with two radio fieldsets tucked into the schedule
+ * panel and nothing anywhere that said what the game was or how it ended — the
+ * home base was picked by clicking one of two hundred identical dots. This is the
+ * one screen a player sees before they know anything, so it does the three jobs
+ * the rest of the interface assumes are already done: states the job, states how
+ * it is won and lost, and makes the first real decision legible.
+ *
+ * Set as a timetable cover would be: the brief in one column, the controls in the
+ * other, one accent, no ornament.
+ */
+.start {
+  width: min(940px, 94vw);
+  max-height: 92vh;
+  padding: 0;
+  border: 2px solid var(--livery);
+  background: var(--paper);
+  color: var(--ink);
+  overflow-y: auto;
+}
+
+.start::backdrop {
+  background: rgb(20 24 29 / 0.55);
+}
+
+.start-head {
+  padding: 22px 26px 18px;
+  border-bottom: 2px solid var(--livery);
+}
+
+.start-eyebrow {
+  margin: 0 0 8px;
+  color: var(--livery);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.start-title {
+  margin: 0;
+  max-width: 34em;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: -0.01em;
+}
+
+.start-lede {
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* The lede is one sentence and reads as one line; it had a 46em measure on it,
+   which broke it in two at full width for no reason — the head is far wider than
+   that. Held to a single line only where there is room for it. Narrower than this
+   the dialog is already stacking, and a wrapped sentence there beats one that
+   runs off the edge. */
+@media (min-width: 821px) {
+  .start-lede {
+    white-space: nowrap;
+  }
+}
+
+/* Brief beside controls on a desk; stacked when there is no room for two. */
+.start-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.start-brief {
+  padding: 20px 26px 22px;
+  border-right: 1px solid var(--rule-hair);
+}
+
+.start-choices {
+  padding: 20px 26px 22px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+/* Term and definition, the way a conditions-of-carriage page is set. */
+.start-terms {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.start-terms > div {
+  display: grid;
+  gap: 3px;
+}
+
+.start-terms dt {
+  color: var(--livery);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.start-terms dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.start-home {
+  display: grid;
+  gap: 6px;
+}
+
+.start-home-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.start-select {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+
+.start-select:focus-visible {
+  outline: 2px solid var(--livery);
+  outline-offset: 1px;
+}
+
+/* The note is the reason the dropdown is worth reading — give it room and hold
+   its height, so changing the selection does not shift the button under the
+   cursor mid-click. */
+.start-home-note {
+  margin: 0;
+  min-height: 4.5em;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.start-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 26px 18px;
+  border-top: 1px solid var(--rule-hair);
+}
+
+/* `.commit` is full-width by default because it is the only control at the foot
+   of the sidebar. Here it sits in a row of its own, so it takes its own width. */
+.start-actions .commit {
+  width: auto;
+  min-width: 220px;
+}
+
+@media (max-width: 820px) {
+  .start-body {
+    grid-template-columns: 1fr;
+  }
+
+  .start-brief {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule-hair);
+  }
+}

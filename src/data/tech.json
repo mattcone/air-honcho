@@ -1,0 +1,173 @@
+{
+  "_meta": {
+    "note": "The technology program. Each node is cash plus time, and delivers a permanent change to operating conditions — the same mechanism events use, just with no expiry. Adding a node is a JSON entry.",
+    "shape": "cost is paid up front; the node lands `quarters` later and never lapses. `requires` gates a node behind another, which is what makes it a tree rather than a shopping list.",
+    "effects": "Same vocabulary as the event deck: fuelPrice, demand, fare, maintenanceCost, crewCost, handlingCost, completion. A node that improves something uses a multiplier below 1 for costs and above 1 for revenue. `loadCeiling` raises how much of the aircraft a carrier can actually fill on a sector that is turning traffic away — revenue management, capacity planning and repeat custom all do this in reality, and without it every strong route flew at exactly the same load factor forever.",
+    "calibration": "Effects are deliberately small. Delivering the whole tree is worth roughly 12% on fare and demand and about 10% off the main cost lines — a real margin improvement for a several-hundred-million program, but not a different game. At double these values the tree was worth ~27 points of margin and a fully-teched carrier could not lose. Costs were raised ~30% and lead times ~35% (2026-07-22): the full tree runs ~$570M and the longest node lands two years out, so technology is a real multi-year commitment rather than a formality a rich carrier clears in passing. Harder access, same per-node effects."
+  },
+  "nodes": [
+    {
+      "id": "revenue-management",
+      "name": "Revenue management",
+      "blurb": "Yield systems that price each seat by how scarce it is.",
+      "cost": 29000000,
+      "quarters": 4,
+      "requires": null,
+      "effects": {
+        "fare": 1.03,
+        "loadCeiling": 1.012
+      }
+    },
+    {
+      "id": "revenue-management-2",
+      "name": "Dynamic pricing",
+      "blurb": "Continuous repricing against live demand and what rivals are asking.",
+      "cost": 62000000,
+      "quarters": 7,
+      "requires": "revenue-management",
+      "effects": {
+        "fare": 1.03,
+        "loadCeiling": 1.018
+      }
+    },
+    {
+      "id": "direct-booking",
+      "name": "Direct booking app",
+      "blurb": "Sell to passengers yourself and stop paying the middlemen.",
+      "cost": 23000000,
+      "quarters": 4,
+      "requires": null,
+      "effects": {
+        "handlingCost": 0.95
+      }
+    },
+    {
+      "id": "ancillary-revenue",
+      "name": "Ancillary revenue",
+      "blurb": "Bags, seats, priority, everything unbundled. Passengers notice.",
+      "cost": 21000000,
+      "quarters": 3,
+      "requires": "direct-booking",
+      "effects": {
+        "fare": 1.04,
+        "demand": 0.98
+      }
+    },
+    {
+      "id": "predictive-maintenance",
+      "name": "Predictive maintenance",
+      "blurb": "Fix it before it breaks. Fewer aircraft out of service, cheaper checks.",
+      "cost": 39000000,
+      "quarters": 5,
+      "requires": null,
+      "effects": {
+        "maintenanceCost": 0.93,
+        "completion": 1.015
+      }
+    },
+    {
+      "id": "operations-control",
+      "name": "Operations control center",
+      "blurb": "Recover the schedule faster when weather or controllers take a day off you.",
+      "cost": 44000000,
+      "quarters": 5,
+      "requires": "predictive-maintenance",
+      "effects": {
+        "completion": 1.02
+      }
+    },
+    {
+      "id": "fuel-efficiency",
+      "name": "Fuel efficiency program",
+      "blurb": "Winglets, single-engine taxi, weight off the aircraft, flown properly.",
+      "cost": 34000000,
+      "quarters": 5,
+      "requires": null,
+      "effects": {
+        "fuelPrice": 0.96
+      }
+    },
+    {
+      "id": "fuel-efficiency-2",
+      "name": "Continuous descent operations",
+      "blurb": "Trajectory optimization across the whole network, negotiated with air traffic control.",
+      "cost": 68000000,
+      "quarters": 8,
+      "requires": "fuel-efficiency",
+      "effects": {
+        "fuelPrice": 0.965
+      }
+    },
+    {
+      "id": "crew-productivity",
+      "name": "Crew productivity program",
+      "blurb": "Rosters that respect the rules and still get more hours out of the day.",
+      "cost": 31000000,
+      "quarters": 5,
+      "requires": null,
+      "effects": {
+        "crewCost": 0.945
+      }
+    },
+    {
+      "id": "alliance",
+      "name": "Alliance membership",
+      "blurb": "Codeshares and through-fares put your seats in front of a lot more people.",
+      "cost": 57000000,
+      "quarters": 7,
+      "requires": "revenue-management",
+      "effects": {
+        "demand": 1.06
+      }
+    },
+    {
+      "id": "loyalty",
+      "name": "Loyalty program",
+      "blurb": "Points that make the choice of airline stop being about price.",
+      "cost": 52000000,
+      "quarters": 7,
+      "requires": "direct-booking",
+      "effects": {
+        "demand": 1.045,
+        "fare": 1.015,
+        "loadCeiling": 1.012
+      }
+    },
+    {
+      "id": "ground-handling",
+      "name": "Ground handling in-house",
+      "blurb": "Stop renting the ramp. Cheaper turns and you control them.",
+      "cost": 36000000,
+      "quarters": 5,
+      "requires": "direct-booking",
+      "effects": {
+        "handlingCost": 0.95,
+        "completion": 1.01
+      }
+    },
+    {
+      "id": "hedging-desk",
+      "name": "Fuel hedging desk",
+      "blurb": "Traders who can lock more of the curve, further out, at a better basis.",
+      "cost": 26000000,
+      "quarters": 4,
+      "requires": null,
+      "effects": {
+        "fuelPrice": 0.985
+      }
+    },
+    {
+      "id": "network-planning",
+      "name": "Network planning systems",
+      "blurb": "Model the network properly and stop flying sectors that never made sense.",
+      "cost": 47000000,
+      "quarters": 7,
+      "requires": "alliance",
+      "effects": {
+        "demand": 1.035,
+        "handlingCost": 0.975,
+        "loadCeiling": 1.015
+      }
+    }
+  ]
+}

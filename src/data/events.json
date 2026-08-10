@@ -1,0 +1,451 @@
+{
+  "_meta": {
+    "note": "The event deck. Each entry is pure data: a set of multipliers on operating conditions, a duration, and how likely it is to come up. There is deliberately no bespoke code per event — adding one is a JSON entry.",
+    "effects": {
+      "fuelPrice": "multiplier on what fuel costs, on top of the spot price",
+      "demand": "multiplier on market size",
+      "fare": "multiplier on the fare that can be charged",
+      "maintenanceCost": "multiplier on maintenance",
+      "crewCost": "multiplier on crew",
+      "handlingCost": "multiplier on airport and per-passenger costs",
+      "completion": "share of the schedule that operates at all",
+      "loadCeiling": "how full a carrier can fly a sector that is turning traffic away"
+    },
+    "design": "Demand shocks glance off strong sectors, because a route already turning traffic away just spills less — see DECISIONS.md. So a demand event has to be severe to be felt at all, and most of the deck works through COST and COMPLETION instead, which bite regardless of how much spare demand a route has.",
+    "scope": "Optional. `regions` limits an event to sectors touching those regions; `aircraftKlass` limits it to sectors flown by that class of aircraft.",
+    "historical": "A timeline of real events on their real dates, fired only in the history scenario, layered on top of the random deck. eventId references a card in `events`; quarter is 1-4. sept11 and covid are the two cards with no generic equivalent."
+  },
+  "events": [
+    {
+      "id": "oil-spike",
+      "group": "fuel",
+      "name": "Oil spike",
+      "blurb": "Crude jumps on supply fears. Every departure costs more before a single seat is sold.",
+      "tone": "bad",
+      "weight": 12,
+      "minTurn": 3,
+      "minDuration": 3,
+      "maxDuration": 9,
+      "effects": {
+        "fuelPrice": 1.55
+      }
+    },
+    {
+      "id": "oil-glut",
+      "group": "fuel",
+      "name": "Oil glut",
+      "blurb": "A supply glut sends crude down. Fuel is briefly cheap.",
+      "tone": "good",
+      "weight": 15,
+      "minTurn": 3,
+      "minDuration": 3,
+      "maxDuration": 8,
+      "effects": {
+        "fuelPrice": 0.72
+      }
+    },
+    {
+      "id": "pandemic",
+      "crisis": true,
+      "name": "Pandemic scare",
+      "blurb": "A health scare empties aircraft worldwide. Nobody is flying who does not have to.",
+      "tone": "bad",
+      "weight": 4,
+      "minTurn": 12,
+      "minDuration": 3,
+      "maxDuration": 7,
+      "effects": {
+        "demand": 0.42,
+        "fare": 0.85
+      }
+    },
+    {
+      "id": "recession",
+      "crisis": true,
+      "group": "economy",
+      "name": "Recession",
+      "blurb": "The economy turns. Corporate travel budgets go first, and fares follow.",
+      "tone": "bad",
+      "weight": 10,
+      "minTurn": 8,
+      "minDuration": 4,
+      "maxDuration": 12,
+      "effects": {
+        "demand": 0.8,
+        "fare": 0.9,
+        "loadCeiling": 0.97
+      }
+    },
+    {
+      "id": "boom",
+      "group": "economy",
+      "name": "Boom",
+      "blurb": "A strong economy fills cabins and lets everyone charge more.",
+      "tone": "good",
+      "weight": 17,
+      "minTurn": 8,
+      "minDuration": 4,
+      "maxDuration": 12,
+      "effects": {
+        "demand": 1.18,
+        "fare": 1.08,
+        "loadCeiling": 1.02
+      }
+    },
+    {
+      "id": "pilot-shortage",
+      "name": "Pilot shortage",
+      "blurb": "Crew are scarce and expensive, and the ones you have are being poached.",
+      "tone": "bad",
+      "weight": 9,
+      "minTurn": 6,
+      "minDuration": 4,
+      "maxDuration": 14,
+      "effects": {
+        "crewCost": 1.35,
+        "completion": 0.95
+      }
+    },
+    {
+      "id": "atc-strike",
+      "name": "Air traffic control strike",
+      "blurb": "Controllers walk out. A large slice of the schedule simply does not go.",
+      "tone": "bad",
+      "weight": 8,
+      "minTurn": 4,
+      "minDuration": 1,
+      "maxDuration": 3,
+      "effects": {
+        "completion": 0.72
+      },
+      "scope": {
+        "regions": [
+          "EU"
+        ]
+      }
+    },
+    {
+      "id": "volcanic-ash",
+      "name": "Volcanic ash",
+      "blurb": "Ash closes airspace. Nothing moves through the affected region.",
+      "tone": "bad",
+      "weight": 6,
+      "minTurn": 4,
+      "minDuration": 1,
+      "maxDuration": 2,
+      "effects": {
+        "completion": 0.35
+      },
+      "scope": {
+        "regions": [
+          "EU",
+          "NA"
+        ]
+      }
+    },
+    {
+      "id": "narrowbody-grounding",
+      "name": "Narrowbody grounding",
+      "blurb": "A design fault grounds a whole class of aircraft. Regulators are in no hurry.",
+      "tone": "bad",
+      "weight": 6,
+      "minTurn": 10,
+      "minDuration": 2,
+      "maxDuration": 6,
+      "effects": {
+        "completion": 0.15
+      },
+      "scope": {
+        "aircraftKlass": "Narrowbody"
+      }
+    },
+    {
+      "id": "widebody-grounding",
+      "name": "Widebody grounding",
+      "blurb": "An engine problem grounds the widebody fleet while inspections run.",
+      "tone": "bad",
+      "weight": 5,
+      "minTurn": 10,
+      "minDuration": 2,
+      "maxDuration": 5,
+      "effects": {
+        "completion": 0.2
+      },
+      "scope": {
+        "aircraftKlass": "Widebody"
+      }
+    },
+    {
+      "id": "airport-charges",
+      "name": "Airport charges rise",
+      "blurb": "Operators push through a round of increases and there is nowhere else to land.",
+      "tone": "bad",
+      "weight": 8,
+      "minTurn": 6,
+      "minDuration": 6,
+      "maxDuration": 16,
+      "effects": {
+        "handlingCost": 1.3
+      }
+    },
+    {
+      "id": "maintenance-directive",
+      "name": "Airworthiness directive",
+      "blurb": "A mandatory inspection program lands on the whole fleet at once.",
+      "tone": "bad",
+      "weight": 7,
+      "minTurn": 8,
+      "minDuration": 3,
+      "maxDuration": 8,
+      "effects": {
+        "maintenanceCost": 1.5,
+        "completion": 0.94
+      }
+    },
+    {
+      "id": "open-skies",
+      "name": "Open-skies treaty",
+      "blurb": "A liberalization deal opens traffic rights and the market grows.",
+      "tone": "good",
+      "weight": 12,
+      "minTurn": 12,
+      "minDuration": 8,
+      "maxDuration": 24,
+      "effects": {
+        "demand": 1.25
+      },
+      "scope": {
+        "regions": [
+          "EU",
+          "SEA",
+          "MEA"
+        ]
+      }
+    },
+    {
+      "id": "capacity-discipline",
+      "group": "fare",
+      "name": "Capacity discipline",
+      "blurb": "The industry stops chasing share and fares firm across the board.",
+      "tone": "good",
+      "weight": 12,
+      "minTurn": 8,
+      "minDuration": 4,
+      "maxDuration": 10,
+      "effects": {
+        "fare": 1.12
+      }
+    },
+    {
+      "id": "tourism-surge",
+      "name": "Tourism surge",
+      "blurb": "A weak currency and a good summer fill every leisure route in the region.",
+      "tone": "good",
+      "weight": 11,
+      "minTurn": 6,
+      "minDuration": 3,
+      "maxDuration": 8,
+      "effects": {
+        "demand": 1.22
+      },
+      "scope": {
+        "regions": [
+          "EU",
+          "SEA",
+          "LATAM",
+          "OCE"
+        ]
+      }
+    },
+    {
+      "id": "fare-war",
+      "group": "fare",
+      "name": "Fare war",
+      "blurb": "Somebody blinks first and the whole market follows the price down.",
+      "tone": "bad",
+      "weight": 8,
+      "minTurn": 8,
+      "minDuration": 2,
+      "maxDuration": 6,
+      "effects": {
+        "fare": 0.82
+      }
+    },
+    {
+      "id": "severe-winter",
+      "name": "Severe winter",
+      "blurb": "Weeks of de-icing, diversions and cancellations across the northern networks.",
+      "tone": "bad",
+      "weight": 8,
+      "minTurn": 4,
+      "minDuration": 1,
+      "maxDuration": 2,
+      "effects": {
+        "completion": 0.85,
+        "handlingCost": 1.15
+      },
+      "scope": {
+        "regions": [
+          "NA",
+          "EU",
+          "EAS"
+        ]
+      }
+    },
+    {
+      "id": "sept11",
+      "name": "September 11",
+      "blurb": "Terror attacks ground the system and empty the cabins. Fear and new security choke demand for months.",
+      "tone": "bad",
+      "weight": 0,
+      "minTurn": 999,
+      "minDuration": 5,
+      "maxDuration": 5,
+      "effects": {
+        "demand": 0.7,
+        "fare": 0.85,
+        "handlingCost": 1.2
+      },
+      "crisis": true,
+      "scope": {
+        "regions": [
+          "NA",
+          "EU"
+        ]
+      }
+    },
+    {
+      "id": "covid",
+      "name": "COVID-19 pandemic",
+      "blurb": "A global pandemic closes borders and empties the skies. Nearly nobody is flying; only bailouts keep the industry alive.",
+      "tone": "bad",
+      "weight": 0,
+      "minTurn": 999,
+      "minDuration": 6,
+      "maxDuration": 6,
+      "effects": {
+        "demand": 0.32,
+        "fare": 0.82
+      },
+      "crisis": true
+    },
+    {
+      "id": "market-turmoil",
+      "name": "Market turmoil",
+      "blurb": "Something has come loose in the wider economy. Nobody agrees yet on how bad it is, or on what exactly it will cost you.",
+      "_comment": "The chaos card. Its headline is constant and its bite is not: every effect is rolled fresh from a range each time it is drawn, so a player who has seen it once still does not know what this one costs. It is the only card in the deck that can land as a nuisance or as the worst quarter of a run, and it is deliberately wide on BOTH sides of 1 — sometimes the turmoil is other people's and traffic comes to you. Wide is the point; if it were tuned to a tight band it would just be another recession card.",
+      "tone": "bad",
+      "weight": 9,
+      "minTurn": 6,
+      "minDuration": 2,
+      "maxDuration": 7,
+      "effects": {},
+      "effectRange": {
+        "demand": [
+          0.74,
+          1.14
+        ],
+        "fare": [
+          0.82,
+          1.1
+        ],
+        "fuelPrice": [
+          0.78,
+          1.48
+        ],
+        "crewCost": [
+          0.96,
+          1.22
+        ]
+      }
+    },
+    {
+      "id": "labour-unrest",
+      "name": "Labour unrest",
+      "blurb": "Contract talks have gone badly somewhere in the industry, and the mood is spreading. How far it goes is anyone's guess.",
+      "_comment": "The second ranged card, narrower and aimed at the cost line rather than the whole board. Two chaos cards rather than one so the deck cannot be read from a single draw — meeting turmoil once should not tell a player what the OTHER wildcard does.",
+      "tone": "bad",
+      "weight": 7,
+      "minTurn": 8,
+      "minDuration": 2,
+      "maxDuration": 6,
+      "effects": {},
+      "effectRange": {
+        "crewCost": [
+          1.04,
+          1.4
+        ],
+        "completion": [
+          0.82,
+          0.99
+        ],
+        "maintenanceCost": [
+          1.0,
+          1.18
+        ]
+      }
+    }
+  ],
+  "historical": [
+    {
+      "year": 2001,
+      "quarter": 1,
+      "eventId": "recession"
+    },
+    {
+      "year": 2001,
+      "quarter": 3,
+      "eventId": "sept11"
+    },
+    {
+      "year": 2003,
+      "quarter": 2,
+      "eventId": "pandemic"
+    },
+    {
+      "year": 2004,
+      "quarter": 3,
+      "eventId": "boom"
+    },
+    {
+      "year": 2008,
+      "quarter": 2,
+      "eventId": "oil-spike"
+    },
+    {
+      "year": 2008,
+      "quarter": 3,
+      "eventId": "recession"
+    },
+    {
+      "year": 2010,
+      "quarter": 2,
+      "eventId": "volcanic-ash"
+    },
+    {
+      "year": 2014,
+      "quarter": 2,
+      "eventId": "boom"
+    },
+    {
+      "year": 2015,
+      "quarter": 1,
+      "eventId": "oil-glut"
+    },
+    {
+      "year": 2020,
+      "quarter": 1,
+      "eventId": "covid"
+    },
+    {
+      "year": 2021,
+      "quarter": 4,
+      "eventId": "pilot-shortage"
+    },
+    {
+      "year": 2022,
+      "quarter": 1,
+      "eventId": "oil-spike"
+    }
+  ]
+}
