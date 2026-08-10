@@ -1,9 +1,19 @@
 name: CI
 
+# Manual only — this does NOT run on push or pull request.
+#
+# The suite is dominated by Monte-Carlo balance fixtures: six tests account for
+# 535s of its 613s, because they play twenty-odd full games to get enough samples
+# to say anything. On a hosted runner that came to 1023s against 376s on the
+# development machine, and eleven tests failed on time budgets rather than on
+# anything being wrong.
+#
+# The decision (2026-08-10) is to run the suite locally instead, and to move the
+# heavy fixtures to a self-hosted Forgejo instance when that is set up. The recipe
+# below is kept, and still runs on demand from the Actions tab, because it is also
+# the reference for what a full check consists of.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   check:

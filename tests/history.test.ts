@@ -190,5 +190,5 @@ describe('the world survives its own history', () => {
     // Budgeted like its sibling above. It used to fit inside the 5s default only
     // because the fixture went bankrupt early and the run stopped; carriers now
     // survive far more often, so this plays all 200 turns of a crowded world.
-  }, 150_000);
+  });
 });

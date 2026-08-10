@@ -203,13 +203,13 @@ describe('endTurn', () => {
     expect(['won', 'lost']).toContain(state.gameOver!.outcome);
     // A full-horizon game with a live M&A market runs several seconds, and longer
     // again when the rest of the suite is competing for the CPU.
-  }, 30_000);
+  });
 
   it('refuses actions once the game is over', () => {
     let state = startedGame();
     for (let i = 0; i < CONSTANTS.game.horizonTurns; i++) state = endTurn(state);
     expect(open(state, 'LON', 'NYC').ok).toBe(false);
-  }, 30_000);
+  });
 
   it('never produces NaN in a long run', () => {
     let state = open(newGame(77, 'DXB'), 'DXB', 'LON').state;

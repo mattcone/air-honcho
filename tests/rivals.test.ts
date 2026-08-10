@@ -307,7 +307,7 @@ describe('rivals apply real pressure', () => {
   // Budgets raised 2026-08-07: the funded growth allowance lets rivals deploy cash as
   // fast as they earn it, so a hundred-turn game now carries several times the routes
   // and fleet it used to. These fixtures are unchanged — the WORK per game grew.
-  }, 60_000);
+  });
 
   it('never lets a rival act after the game has ended', () => {
     let state = newGame(11, 'LON');
@@ -315,7 +315,7 @@ describe('rivals apply real pressure', () => {
     expect(state.turn).toBe(CONSTANTS.game.horizonTurns);
     expect(applyAction(state, { type: 'OPEN_ROUTE', carrierId: 'player', from: 'LON', to: 'NYC' }).ok)
       .toBe(false);
-  }, 30_000);
+  });
 });
 
 describe('an airline buys the technology it is the sort of airline to buy', () => {
@@ -501,7 +501,7 @@ describe('the field regenerates — new airlines spin up', () => {
     // clone the state) run past the 5s default — and past 15s once medium's field
     // got a second growth move a quarter, which is more work every turn rather than
     // anything slower per unit of work.
-  }, 60_000);
+  });
 
   it('lets more than the roll-up buy companies out — but not the ULCC', () => {
     const acquisitive = ARCHETYPES.filter((a) => a.acquisitive).map((a) => a.id);
@@ -539,7 +539,7 @@ describe('merger review stops the field consolidating to one', () => {
       // Nowhere near the doctrine's 90% share ceiling.
       if (rivalRoutes > 0) expect(biggest / rivalRoutes, `seed ${seed}`).toBeLessThan(0.9);
     }
-  }, 120_000);
+  }, 240_000);
 });
 
 describe('a rival commits to the sector it opened', () => {
@@ -693,7 +693,7 @@ describe('a rival spends the treasuries it commands', () => {
     expect(subsidiaryQuarters, 'no rival ever held a subsidiary — the fixture is inert').toBeGreaterThan(20);
     // ...and their treasuries have to actually get spent.
     expect(fired, 'rivals hold subsidiaries but never direct them').toBeGreaterThan(0);
-  }, 120_000);
+  });
 
   it('counts effective control in merger review, not the company register', () => {
     // A pyramid never merges anything, so a floor counting solvent carriers would
@@ -786,5 +786,5 @@ describe('the Territorial archetype plays differently', () => {
     };
     expect(dearShare('monopolist'), 'a Territorial should price its own hub dearer than a legacy carrier')
       .toBeGreaterThan(dearShare('legacy'));
-  }, 300_000);
+  }, 700_000);
 });

@@ -1518,7 +1518,7 @@ describe('dividends received are taxed by ownership', () => {
       }
     }
     expect(checked).toBeGreaterThan(200);
-  }, 30_000);
+  });
 });
 
 /**

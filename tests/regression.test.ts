@@ -233,7 +233,7 @@ describe('reproducibility', () => {
   // the default per-test budget.
   it('gives byte-identical results for a repeated seed', () => {
     expect(runGame(4242)).toEqual(runGame(4242));
-  }, 30_000);
+  });
 
   it('gives different results for different seeds', () => {
     const cash = runGames(500, 8).map((r) => r.finalCash);
@@ -241,14 +241,14 @@ describe('reproducibility', () => {
   // Budgets raised 2026-08-07: the funded growth allowance lets rivals deploy cash as
   // fast as they earn it, so a hundred-turn game now carries several times the routes
   // and fleet it used to. These fixtures are unchanged — the WORK per game grew.
-  }, 120_000);
+  }, 240_000);
 
   it('does not depend on how many games ran before it', () => {
     // Catches accidental shared mutable state between runs.
     const alone = runGame(777);
     runGames(0, 5);
     expect(runGame(777)).toEqual(alone);
-  }, 30_000);
+  });
 });
 
 /**
