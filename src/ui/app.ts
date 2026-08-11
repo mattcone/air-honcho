@@ -576,6 +576,20 @@ export class App {
       tip.hidden = true;
       return;
     }
+    /*
+     * No game yet means the start dialog is up. Hide the note — it would render
+     * behind that dialog, which showModal() puts in the browser's top layer — but
+     * return BEFORE the retirement branch below.
+     *
+     * `nextStep` returns null both for "not started" and for "finished", and only
+     * the second should retire the sequence. Letting the first fall through would
+     * call markOnboardingSeen() on first paint, writing to localStorage before the
+     * player has begun, and every new player would silently lose the coaching.
+     */
+    if (this.game === null) {
+      tip.hidden = true;
+      return;
+    }
     // The LIVE step is still whatever the game says you have not done — reading
     // ahead never marks anything done, and the sequence still retires on real
     // state rather than on how far you paged.

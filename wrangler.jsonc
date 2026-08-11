@@ -11,5 +11,15 @@
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
-  }
+  },
+  // The public address. `custom_domain` makes Cloudflare create and own the DNS
+  // record for this hostname on the airhoncho.com zone — do not also add an A or
+  // CNAME for it by hand, or the two will fight.
+  //
+  // The apex (airhoncho.com) is deliberately NOT listed: one canonical hostname,
+  // with the apex left to a redirect rule. Adding it here would serve the same game
+  // on two addresses instead.
+  "routes": [
+    { "pattern": "www.airhoncho.com", "custom_domain": true }
+  ]
 }

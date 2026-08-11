@@ -6,6 +6,22 @@
     <title>Air Honcho</title>
     <meta name="description" content="A turn-based airline management game. Buy a plane, open a route, keep the board happy." />
     <link rel="stylesheet" href="/src/style.css" />
+
+    <!--
+      Privacy-friendly analytics, self-hosted on hawk.forklabs.com. No cookies, no
+      personal data, nothing that identifies a player — and it is the only request
+      this page makes to anywhere other than itself.
+
+      Loaded `async` so it never delays the game, and its absence is harmless: if the
+      host is down or a blocker eats it, `window.plausible` is still defined by the
+      stub below and calls queue into `plausible.q` rather than throwing. Nothing in
+      /src depends on it, and nothing in /src/sim may ever touch it.
+    -->
+    <script async src="https://hawk.forklabs.com/js/pa--iPTVuQOlGKOGOOPlKxNq.js"></script>
+    <script>
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init()
+    </script>
   </head>
   <body>
     <div class="app">

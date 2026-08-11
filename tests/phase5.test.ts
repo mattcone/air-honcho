@@ -71,17 +71,23 @@ describe('save slots', () => {
 });
 
 describe('first-turn coaching', () => {
-  it('walks five steps and retires each as the player does it', () => {
-    expect(STEPS).toHaveLength(5);
-    // Nothing started: the first note is about picking a home city.
-    expect(nextStep(null)?.id).toBe('home');
+  it('walks four steps and retires each as the player does it', () => {
+    expect(STEPS).toHaveLength(4);
+    /*
+     * Nothing started means the start dialog is up, and it is coached by NOT being
+     * coached. That dialog is opened with showModal(), so the browser renders it in
+     * the top layer and a note anchored to the map sits behind it whatever its
+     * z-index — which is precisely what the player reported. Home base is chosen
+     * inside that dialog now, so there is nothing left to say here anyway.
+     */
+    expect(nextStep(null)).toBeNull();
     // A game exists but there is no aircraft yet.
     const fresh = newGame(3, 'LON');
     expect(nextStep(fresh)?.id).toBe('fleet');
   });
 
   it('can actually reach every step it counts', () => {
-    // The note is labelled "n/5", so all five have to be showable. Two steps that
+    // The note is labelled "n/4", so all four have to be showable. Two steps that
     // retire on the SAME condition collapse into one: the earlier is displayed, the
     // later never is. That is what `posture` and `books` both keying on `turn > 0`
     // did — the note explaining how to close the books was unreachable.
@@ -90,10 +96,7 @@ describe('first-turn coaching', () => {
 
     // And walk it: every step must be the answer for some reachable state.
     const seen = new Set<string>();
-    let game: GameState | null = null;
-    seen.add(nextStep(game)!.id);                                   // home
-
-    game = newGame(3, 'LON');
+    let game: GameState | null = newGame(3, 'LON');
     seen.add(nextStep(game)!.id);                                   // fleet
 
     game = applyAction(game, {

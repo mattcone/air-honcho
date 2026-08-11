@@ -1,5 +1,5 @@
 /**
- * First-turn onboarding: five tooltips, not a tutorial mode.
+ * First-turn onboarding: four tooltips, not a tutorial mode.
  *
  * CLAUDE.md pillar 3 says turn 1 must be playable in under two minutes with no
  * tutorial, so this never blocks, never takes the controls, and never gates a
@@ -9,6 +9,13 @@
  *
  * The steps are keyed to game state rather than to clicks, so a player who worked
  * it out for themselves never sees the note telling them to do what they just did.
+ *
+ * Nothing is coached before a game exists. The start dialog owns that moment: it is
+ * a native <dialog> opened with showModal(), which the browser puts in the TOP
+ * LAYER, above every stacking context on the page. A note anchored to the map
+ * therefore renders behind it however high its z-index goes — the bug this rule
+ * fixes — and it would be pointing at a control the player cannot reach anyway.
+ * Home base is chosen in that dialog now, which is why there is no note about it.
  */
 import type { GameState } from '../sim/types.ts';
 
@@ -27,12 +34,6 @@ const playerRoutes = (game: GameState | null): number =>
   game ? game.routes.filter((r) => r.carrierId === game.playerCarrierId).length : 0;
 
 export const STEPS: readonly OnboardingStep[] = [
-  {
-    id: 'home',
-    anchor: '#map-frame',
-    text: 'Pick a home city on the map. Everything you fly starts from the network you build around it.',
-    done: (game) => game !== null,
-  },
   {
     id: 'fleet',
     anchor: '#acquire',
@@ -90,6 +91,8 @@ const COACH_UNTIL_TURN = 2;
 
 /** The first step the player has not yet completed, or null when they are done. */
 export function nextStep(game: GameState | null): OnboardingStep | null {
-  if (game && game.turn >= COACH_UNTIL_TURN) return null;
+  // No game yet means the start dialog is up; see the note at the top of this file.
+  if (game === null) return null;
+  if (game.turn >= COACH_UNTIL_TURN) return null;
   return STEPS.find((s) => !s.done(game)) ?? null;
 }
