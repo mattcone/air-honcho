@@ -24,6 +24,33 @@
     </script>
   </head>
   <body>
+    <!--
+      Shown INSTEAD of the board on screens narrower than the layout's floor.
+
+      CLAUDE.md §3 rules out contorting for phones, and this does not: there is no
+      phone layout here. It is an honest end for a screen the board does not fit,
+      and the instruction is worth giving because it actually works — every phone
+      measured clears the 577px floor as soon as it is turned, so this is a fix the
+      reader can carry out rather than a notice that they are out of luck.
+
+      A body-level sibling on purpose. It has to be able to replace the dialogs too,
+      and those are opened with showModal(), which puts them in the browser's top
+      layer above every stacking context — see the note in onboarding.ts.
+    -->
+    <div class="too-narrow" role="alertdialog" aria-labelledby="too-narrow-title">
+      <div class="too-narrow-card">
+        <p class="too-narrow-eyebrow">Air Honcho</p>
+        <h1 class="too-narrow-title" id="too-narrow-title">This board needs a wider screen.</h1>
+        <p class="too-narrow-body">
+          Turn your device sideways and it will fit. On a desktop, widen the window.
+        </p>
+        <p class="too-narrow-note">
+          It is a game of dense tables and a world map — the kind of thing that wants
+          room, like the annual report it is pretending to be.
+        </p>
+      </div>
+    </div>
+
     <div class="app">
       <header class="masthead">
         <!-- The cheatline: the stripe that runs the length of a fuselage, passing

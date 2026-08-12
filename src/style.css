@@ -2292,7 +2292,21 @@ body {
 /* Desktop first, per the design brief. Below the rail's comfortable width the
    board stacks; the map keeps a fixed aspect so it stays readable. */
 
-@media (max-width: 900px) {
+/*
+ * Stacked layout: too narrow for the desk, OR too SHORT for it.
+ *
+ * The height clause is what a phone held sideways needs. Above 900px the shell is a
+ * fixed-height grid and the plate's `max-height` cap is load-bearing — without it a
+ * taller plate overlaps the inspector instead of pushing it down. But a 932x430
+ * screen has no business running that layout at all: the cap resolves to ~160px, and
+ * because the plate's aspect ratio is fixed that takes its WIDTH down with it, so the
+ * map drew 406px wide on a 932px screen inside a band of empty paper.
+ *
+ * Stacking instead gives the plate the full width and lets the page scroll, which is
+ * what it already does on every short screen. Bounded at 1180px so an ordinary desk
+ * window that happens to be short keeps the layout it was designed for.
+ */
+@media (max-width: 900px), (max-height: 520px) and (max-width: 1180px) {
   html,
   body,
   .app {
@@ -2314,6 +2328,25 @@ body {
 
   .map-frame {
     aspect-ratio: 1000 / 395;
+    /* Safe here and only here: the shell above scrolls, so a taller plate pushes
+       the panel down rather than sitting on top of it. */
+    max-height: none;
+  }
+
+  /*
+   * Map first when stacked.
+   *
+   * Source order puts the rail before the chart because on a desk they are side by
+   * side and the rail is the left column — but stacked, that same order buries the
+   * map under a column of figures and the board opens on its own margins. The map is
+   * the thing you act on, so it goes at the top and the ledger reads beneath it.
+   */
+  .chart {
+    order: 1;
+  }
+
+  .rail {
+    order: 2;
   }
 
   .masthead {
@@ -2667,7 +2700,7 @@ body {
   mask-image: linear-gradient(to bottom, #000 calc(100% - 12px), transparent 100%);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 900px), (max-height: 520px) and (max-width: 1180px) {
   /* Stacked layout: the page scrolls, the rail does not, so nothing to fade. */
   .rail-scroll {
     -webkit-mask-image: none;
@@ -2926,11 +2959,35 @@ body {
 
 /* Commit and cancel, side by side — the same shape the treasury uses for the
    consequential controls, so the primary one carries the livery. */
+/*
+ * The commit control is furniture, not content: it stays put while the dossier
+ * scrolls under it.
+ *
+ * The inspector takes a fixed share of the column and scrolls what will not fit, so
+ * on a shorter window the buttons that OPEN the sector scrolled out of the panel and
+ * the player had to find them before they could act — measured, the "Open sector"
+ * button fell below the fold at every viewport under about 800px tall, which is an
+ * ordinary laptop once the browser's own chrome is taken off.
+ *
+ * Sticky rather than shrinking the map: the map is the thing being read while this
+ * decision is made, and taking height off it to make room for a button is paying in
+ * the wrong currency.
+ */
 .prospect-actions {
+  position: sticky;
+  /* Pulled down over the panel's own bottom padding, and that padding given back
+     inside. At `bottom: 0` the bar stops 14px short of the panel edge and the last
+     line of the note shows underneath it, which reads as a rendering fault. */
+  bottom: -14px;
+  z-index: 1;
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 8px;
   margin-top: 14px;
+  /* Sits over scrolling text, so it needs its own ground and a rule to sit on. */
+  padding: 10px 0 14px;
+  border-top: 1px solid var(--rule-hair);
+  background: var(--paper);
 }
 
 .prospect-actions .wide-action {
@@ -3131,5 +3188,92 @@ body {
   .start-brief {
     border-right: 0;
     border-bottom: 1px solid var(--rule-hair);
+  }
+}
+
+/* --- Below the layout's floor, and touch targets ---------------------------- */
+
+/*
+ * The board stops fitting at 577px: measured, not guessed — a 560px viewport
+ * scrolls 17px sideways and a 600px one does not. So the cut is 576px, the last
+ * width that cannot lay the board out.
+ *
+ * Hidden by default rather than shown-and-hidden, so this costs a desktop reader
+ * nothing and cannot flash during load.
+ */
+.too-narrow {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: var(--paper);
+}
+
+.too-narrow-card {
+  max-width: 33ch;
+  border-top: 3px solid var(--carrier);
+  padding-top: 18px;
+}
+
+.too-narrow-eyebrow {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.too-narrow-title {
+  margin: 0 0 12px;
+  font-size: 25px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.too-narrow-body {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.too-narrow-note {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule-hair);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 576px) {
+  .too-narrow { display: flex; }
+  /* Everything else goes, including any dialog left open in the top layer. */
+  .app,
+  #coach { display: none; }
+  dialog[open] { display: none; }
+}
+
+/*
+ * Touch targets, for the tablets CLAUDE.md §3 does commit to not breaking.
+ *
+ * Every control on the board measured under the 44px floor — 17 of 17 — which is
+ * fine under a mouse and not fine under a thumb. Gated on `pointer: coarse` so the
+ * desktop design this is all built around is left at exactly the density it was
+ * drawn at, and only a touch device pays the extra height.
+ */
+@media (pointer: coarse) {
+  .board button,
+  .board select,
+  .board [role='button'],
+  .sheet button,
+  .sheet select {
+    min-height: 44px;
   }
 }
