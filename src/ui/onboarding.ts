@@ -43,7 +43,14 @@ export const STEPS: readonly OnboardingStep[] = [
   {
     id: 'route',
     anchor: '#map-frame',
-    text: 'Now pick a sector: click your home city, then a destination. You will see what it costs before you open it — short, busy pairs pay before long thin ones.',
+    /*
+     * This used to say "short, busy pairs pay before long thin ones", which points a
+     * new player at the one part of the map the economy punishes hardest. Ground
+     * handling is charged per departure, and a short sector turns so often that the
+     * line runs past half of revenue under about 300km while sitting near 15% at
+     * 2,400km — so the nearest city is usually the worst first sector, not the best.
+     */
+    text: 'Now pick a sector: click your home city, then a destination. You will see what it costs before you open it — and give it some distance. Your nearest neighbours turn so often that ground handling eats them.',
     done: (game) => playerRoutes(game) > 0,
   },
   {

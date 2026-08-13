@@ -39,7 +39,7 @@ export interface InspectorCallbacks {
 }
 
 /*
- * Five notches, dearest first. Still one decision per sector — a posture, not a
+ * Five notches, priciest first. Still one decision per sector — a posture, not a
  * fare box — but three could not express two strategies that exist in life and
  * now exist here: milking a monopoly that is turning away more people than it
  * carries, and buying a market that is thinner than the metal on it.
@@ -53,12 +53,12 @@ const POSTURES: readonly { id: PricingPosture; label: string; hint: string }[] =
   {
     id: 'skim',
     label: 'Skim',
-    hint: 'The top of the market: fewest seats, dearest fares, dearest to serve. Only worth it where you are already turning people away at Premium — it sheds a lot of traffic to lift the yield on what is left.',
+    hint: 'The top of the market: fewest seats, highest fares, priciest to serve. Only worth it where you are already turning people away at Premium — it sheds a lot of traffic to lift the yield on what is left.',
   },
   {
     id: 'premium',
     label: 'Premium',
-    hint: 'A premium cabin: fewer seats, much dearer, and much dearer to serve. Wins where fares are high and you cannot fill a dense cabin anyway.',
+    hint: 'A premium cabin: fewer seats, much higher fares, and much more expensive to serve. Wins where fares are high and you cannot fill a dense cabin anyway.',
   },
   { id: 'match', label: 'Match', hint: 'Standard cabin, and the fare the market will bear.' },
   {
@@ -212,6 +212,39 @@ function renderProspect(
       ? `${getCity(fresh[0]!).name} is new to your network. Standing it up is the small part; carrying it every quarter afterwards is the real cost, and it stays yours alone until you put more sectors through it.`
       : 'Neither city is on your network, so this sector stands up two stations and then carries both on its own, every quarter, until something else flies through them.';
   panel.append(note);
+
+  /*
+   * The warning a new player most needs and could not get anywhere on this panel.
+   *
+   * Ground handling is charged per departure, and frequency is derived from the
+   * aircraft rather than set by the player — so a short sector turns far more often
+   * for the same fleet and pays the per-turn cost far more often. Measured on the
+   * shipped economy with the strongest short-haul narrowbody: handling is 55% of
+   * revenue at 261km, 48% at 343km, 28% at 932km and 15% at 2,392km, and the only
+   * loss-making sector within 6,000km of London was the 261km one.
+   *
+   * The exact departures cannot be quoted here — nothing is assigned to the sector
+   * yet, and frequency depends on what eventually flies it — so this states the rule
+   * and the direction rather than inventing a figure.
+   *
+   * The threshold lives here rather than in constants.json because it decides when a
+   * sentence appears, not how the game behaves; nothing in /sim reads it.
+   */
+  const HANDLING_WARN_KM = 800;
+  if (dist < HANDLING_WARN_KM) {
+    const short = el('p', 'prospect-note');
+    short.textContent = dist < 400
+      ? `At ${km(dist)} km this is a very short sector. Ground handling is charged every time ` +
+        `an aircraft turns, and a sector this short turns many times a week — it is the line ` +
+        `that sinks short routes, and filling the cabin does not fix it, because most of the ` +
+        `cost is per departure rather than per passenger. Expect handling to take about half ` +
+        `of what this sector earns. More distance, or a bigger aircraft over the same turn, ` +
+        `is what brings it down.`
+      : `At ${km(dist)} km this is a short sector, so it will turn often and ground handling — ` +
+        `charged per departure — will be a heavy line on it. It eases with distance: around a ` +
+        `quarter of revenue near 900 km against roughly half of it under 300 km.`;
+    panel.append(short);
+  }
 
   const actions = el('div', 'prospect-actions');
   const open = el('button', 'wide-action wide-action--primary') as HTMLButtonElement;
@@ -394,16 +427,44 @@ function renderConsolidated(panel: HTMLElement, state: GameState): void {
   }
   panel.append(head);
 
+  /*
+   * Same cost lines as the sector dossier, so they carry the same explanations —
+   * a player reading "why did I lose money this quarter" is at least as likely to
+   * be looking here as at one sector, and these had no notes at all.
+   */
   const list = el('dl', 'figures');
-  list.append(figure('Revenue', usd(last.revenue)));
-  list.append(costLine('Fuel', last.fuel));
-  list.append(costLine('Crew', last.crew));
-  list.append(costLine('Maintenance', last.maintenance));
-  list.append(costLine('Handling', last.handling));
-  list.append(costLine('Leases', last.lease));
-  list.append(costLine('Standing', last.standing));
-  list.append(costLine('Stations', last.fixed));
-  list.append(costLine('Overhead', last.overhead));
+  const withTip = (node: HTMLElement, tip: string): HTMLElement => { node.title = tip; return node; };
+  list.append(withTip(figure('Revenue', usd(last.revenue)),
+    'Everything the airline took this quarter: ticket revenue plus belly freight, across every sector.'));
+  list.append(withTip(costLine('Fuel', last.fuel),
+    'Burn times sector length times the market fuel price, across the network. It scales with '
+    + 'distance and aircraft size rather than with how full you fly, and hedging fixes the price '
+    + 'on part of it in advance.'));
+  list.append(withTip(costLine('Crew', last.crew),
+    'Flight and cabin crew for the hours flown. Bought locally, so it tracks the economic weight '
+    + 'of the cities you fly out of.'));
+  list.append(withTip(costLine('Maintenance', last.maintenance),
+    'Upkeep across the fleet. It climbs with airframe age along a flattening curve, so an old '
+    + 'fleet costs more every quarter — heavy checks reset it, predictive maintenance bends it.'));
+  list.append(withTip(costLine('Handling', last.handling),
+    'Ground costs in two parts: one charged every time an aircraft turns, so short sectors that '
+    + 'turn often pay it hardest; and one charged per passenger, which your fare posture '
+    + 'multiplies — serving a Skim passenger costs about four and a half times a Match one. '
+    + 'Neither half is fixed by filling seats, which is why a busy-looking airline can still '
+    + 'lose money here.'));
+  list.append(withTip(costLine('Leases', last.lease),
+    'Rent on every leased aircraft, owed whether it flies or sits. Owned aircraft cost you '
+    + 'depreciation on the sector sheets instead of rent here.'));
+  list.append(withTip(costLine('Standing', last.standing),
+    'The cost of having the metal at all — insurance, admin, parking — charged per seat of gauge '
+    + 'every quarter, flying or not. Aircraft you have not assigned to anything still owe it.'));
+  list.append(withTip(costLine('Stations', last.fixed),
+    'What it costs to keep each city on your network, plus a per-sector charge. A station costs '
+    + 'the same whether one sector uses it or six, so more sectors through the cities you already '
+    + 'serve is what brings this down.'));
+  list.append(withTip(costLine('Overhead', last.overhead),
+    'Head office riding on what the airline spends flying — IT, sales, scheduling, admin. A flat '
+    + 'uplift on the operating lines above, so it only falls when they do.'));
   // Interest is charged below the operating line and can dwarf every cost above
   // it on a leveraged carrier — show it whenever there is debt to service, so the
   // net reconciles with the lines above rather than leaving an unexplained gap.
@@ -417,7 +478,8 @@ function renderConsolidated(panel: HTMLElement, state: GameState): void {
     div.title = 'Dividends collected this quarter on your stakes in other carriers.';
     list.append(div);
   }
-  list.append(costLine('Tax', last.tax));
+  list.append(withTip(costLine('Tax', last.tax),
+    'Corporation tax on the quarter\u2019s profit. A loss-making quarter pays none.'));
   const net = figure('Net', usd(last.netIncome), last.netIncome < 0);
   net.classList.add('figure-total');
   list.append(net);
@@ -526,15 +588,25 @@ function renderRoute(
 
   // --- Operating figures ---
   const ops = el('dl', 'figures figures--ops');
-  ops.append(figure('Market', `${Math.round(econ.marketDemandWeekly).toLocaleString('en-US')}/wk`));
+  const market = figure('Market', `${Math.round(econ.marketDemandWeekly).toLocaleString('en-US')}/wk`);
+  market.title =
+    'Passengers a week the whole city pair wants, both directions, before anyone competes for '
+    + 'them. It comes from the two cities\u2019 size and wealth and the distance between them, and '
+    + 'it is the ceiling every carrier on this sector is splitting.';
+  ops.append(market);
   const shareFig = figure('Your share', pct(econ.demandShare));
   // When the carrier's network lifts this sector, say so — it is otherwise an
   // invisible reason two carriers on identical metal split a market unevenly.
-  if (feed > 1.005) {
-    shareFig.title =
-      `Includes a +${Math.round((feed - 1) * 100)}% hub-feed bonus: your other routes at ` +
-      `${route.from} and ${route.to} funnel connecting traffic onto this sector.`;
-  }
+  const shareBase =
+    'Your slice of the market above, set by how attractive your service is against everyone '
+    + 'else flying it: how often you go, your fare posture, the aircraft you use and the '
+    + 'network feeding it. ';
+  shareFig.title = feed > 1.005
+    ? shareBase
+      + `It includes a +${Math.round((feed - 1) * 100)}% hub-feed bonus: your other routes at `
+      + `${route.from} and ${route.to} funnel connecting traffic onto this sector.`
+    : shareBase
+      + 'More frequency here would raise it, with diminishing returns.';
   ops.append(shareFig);
   const atCeiling = econ.capacityWeekly > 0 && econ.loadFactor >= econ.loadCeiling - 1e-9;
   const load = figure('Load factor', pct(econ.loadFactor));
@@ -543,7 +615,11 @@ function renderRoute(
       `revenue management, capacity planning and a loyalty program all raise it.`
     : 'Below your ceiling: there is not enough demand to fill the seats you are flying.';
   ops.append(load);
-  ops.append(figure('Seats/wk', Math.round(econ.capacityWeekly).toLocaleString('en-US')));
+  const seats = figure('Seats/wk', Math.round(econ.capacityWeekly).toLocaleString('en-US'));
+  seats.title =
+    'Seats you are offering here each week, both directions: gauge times round trips. This is '
+    + 'what you are paying to fly whether or not anyone sits in it.';
+  ops.append(seats);
   const trips = figure('Round trips', `${econ.frequencyWeekly.toFixed(1)}/wk`);
   trips.title = completionNote(
     assigned.map((a) => a.typeId), econ.distanceKm, econ.frequencyWeekly,
@@ -556,7 +632,11 @@ function renderRoute(
       `It erodes toward the competitive fare as rivals add capacity here.`
     : 'The competitive fare: rivals are flying enough capacity here that the market has priced out any monopoly premium.';
   ops.append(fare);
-  ops.append(figure('Passengers', `${Math.round(econ.paxCarriedWeekly).toLocaleString('en-US')}/wk`));
+  const pax = figure('Passengers', `${Math.round(econ.paxCarriedWeekly).toLocaleString('en-US')}/wk`);
+  pax.title =
+    'Passengers you actually carried, both directions, after the market was split and anyone '
+    + 'who could not be seated was spilled to a rival. Seats offered minus this is what you flew empty.';
+  ops.append(pax);
   // The single most actionable number on a full sector: traffic you won and had
   // to turn away for want of seats.
   if (econ.spilledWeekly > 1) {
@@ -594,7 +674,7 @@ function renderRoute(
   }
 
   panel.append(competitionTable(state, board, route));
-  panel.append(routePnl(econ, {
+  panel.append(routePnl(econ, route.posture, {
     from: getCity(route.from).name,
     to: getCity(route.to).name,
     atFrom: state.routes.filter((r) => r.carrierId === carrier.id && (r.from === route.from || r.to === route.from)).length,
@@ -852,7 +932,11 @@ function competitionTable(
   return wrap;
 }
 
-function routePnl(econ: RouteEconomics, stations?: { from: string; to: string; atFrom: number; atTo: number }): HTMLElement {
+function routePnl(
+  econ: RouteEconomics,
+  posture: PricingPosture,
+  stations?: { from: string; to: string; atFrom: number; atTo: number },
+): HTMLElement {
   const list = el('dl', 'figures');
   // Two revenue lines, the way an airline reports them. Folding freight into a
   // single "Revenue" would hide the reason a widebody is worth flying at all on a
@@ -870,13 +954,78 @@ function routePnl(econ: RouteEconomics, stations?: { from: string; to: string; a
       'does not. Widebody holds earn roughly ten times a narrowbody\u2019s per seat.';
     list.append(freight);
   } else {
-    list.append(figure('Revenue', usd(econ.revenue)));
+    const rev = figure('Revenue', usd(econ.revenue));
+    rev.title = 'Ticket revenue — what the passengers this sector carried paid.';
+    list.append(rev);
   }
-  list.append(costLine('Fuel', econ.fuel));
-  list.append(costLine('Crew', econ.crew));
-  list.append(costLine('Maintenance', econ.maintenance));
-  list.append(costLine('Handling', econ.handling));
-  list.append(costLine('Leases', econ.lease));
+
+  const fuel = costLine('Fuel', econ.fuel);
+  fuel.title =
+    'Burn times sector length times the market fuel price. It scales with distance and ' +
+    'with how big the aircraft is, not with how full it is — an empty seat burns the same ' +
+    'fuel as a sold one. Hedging fixes the price you pay on part of it.';
+  list.append(fuel);
+
+  const crew = costLine('Crew', econ.crew);
+  crew.title =
+    'Flight and cabin crew for the hours flown. Bought locally, so it tracks the economic ' +
+    'weight of the cities at each end: the same aircraft on the same length of sector costs ' +
+    'more crew out of an expensive market than a cheap one.';
+  list.append(crew);
+
+  const maint = costLine('Maintenance', econ.maintenance);
+  maint.title =
+    'Upkeep on the aircraft assigned here. It climbs with airframe age along a curve that ' +
+    'flattens out, so an old fleet costs more to run every quarter — a heavy check resets ' +
+    'the clock, and predictive maintenance in the technology tree bends the curve.';
+  list.append(maint);
+
+  /*
+   * Two halves, and which one dominates depends on what the player is doing.
+   *
+   * A small aircraft on a short hop pays mostly the PER-DEPARTURE half. A premium
+   * posture pays mostly the PER-PASSENGER half — `paxCost` runs 4.6x at Skim against
+   * 1.0 at Match on a $22 base, so a Skim passenger costs about $101 to serve. That
+   * second case is the one a player reported and the one the first version of this
+   * note missed entirely, because it only explained the per-departure story.
+   *
+   * The posture point matters because it inverts with distance: the cost uplift is a
+   * flat number of dollars a head, while the fare uplift scales with sector length.
+   * On a 343km sector Skim earns +$61 a head and costs +$79; on a 5,570km one it
+   * earns +$353 for the same +$79.
+   */
+  const handling = costLine('Handling', econ.handling);
+  // Nothing is flying yet on a sector whose metal has not arrived, and "flies 0
+  // departures a week" inside a sentence about turning often reads as a fault.
+  const deps = Math.round(econ.departuresWeekly);
+  /*
+   * The per-passenger RATE is quoted for the posture this sector is actually on,
+   * not as a general rule.
+   *
+   * The rule alone is what the first version said, and it is not enough: a player
+   * on Skim reads "premium postures cost more per head", agrees, and still has no
+   * idea he is paying $101 a passenger where Match pays $22. That gap is what cost
+   * a player a route and had three separate observers — him, the author, and a
+   * second model reading the figures — call an intentional mechanism a bug.
+   */
+  const perPax = CONSTANTS.fleet.distributionPerPax * CONSTANTS.posture.paxCost[posture];
+  const matchPax = CONSTANTS.fleet.distributionPerPax;
+  const label = POSTURES.find((o) => o.id === posture)?.label ?? posture;
+  handling.title =
+    `Ground costs, in two parts. One is charged every time an aircraft turns — gate, ramp, ` +
+    `landing — ${deps > 0 ? `and this sector flies ${deps} departures a week, so ` : 'so '}` +
+    `short sectors that turn often pay it hardest. The other is charged per passenger, at a rate ` +
+    `your posture sets: ${label} costs about $${Math.round(perPax)} a head to serve` +
+    `${posture === 'match' ? '' : `, against $${Math.round(matchPax)} at Match`}. The pricier ` +
+    `postures earn that back on long sectors, not on short ones.`;
+  list.append(handling);
+
+  const lease = costLine('Leases', econ.lease);
+  lease.title =
+    'Rent on the leased aircraft assigned here, owed every quarter whether the sector ' +
+    'flies well or badly. It is the price of not tying up capital in the metal — owned ' +
+    'aircraft show as depreciation instead, and handing a lease back early carries a fee.';
+  list.append(lease);
   // Owned aircraft carry depreciation where leased ones carry rent. Only shown
   // when there is owned metal on the sector, so a fully-leased route reads clean.
   if (econ.ownership > 0) {
@@ -887,7 +1036,13 @@ function routePnl(econ: RouteEconomics, stations?: { from: string; to: string; a
       'what a leased aircraft pays as rent instead. It is why owning is not free here.';
     list.append(dep);
   }
-  list.append(costLine('Standing', econ.standing));
+  const standing = costLine('Standing', econ.standing);
+  standing.title =
+    'The cost of having the metal at all — insurance, admin, parking — charged per seat ' +
+    'of gauge, every quarter, whether the aircraft flies or sits. A parked aircraft still ' +
+    'owes it, so an unassigned tail quietly drains cash, and an oversized one owes more.';
+  list.append(standing);
+
   const station = costLine('Station', econ.fixed);
   if (stations) {
     // The one cost line on this sheet a player can act on by changing the SHAPE of
@@ -901,9 +1056,18 @@ function routePnl(econ: RouteEconomics, stations?: { from: string; to: string; a
       `brings this line down — on this sector and on every other one touching them.`;
   }
   list.append(station);
-  list.append(costLine('Overhead', econ.overhead));
+  const overhead = costLine('Overhead', econ.overhead);
+  overhead.title =
+    'Head office riding on what the sector spends flying — IT, sales, scheduling, admin. ' +
+    'A flat uplift on the operating lines above, so it cannot be cut on its own: it falls ' +
+    'only when the costs it sits on top of fall.';
+  list.append(overhead);
+
   const net = figure('Sector net', usd(econ.netEconomic), econ.netEconomic < 0);
   net.classList.add('figure-total');
+  net.title =
+    'Everything above, added up: what this sector contributed this quarter. It carries no ' +
+    'share of debt interest or tax — those are company-level, not the sector\u2019s doing.';
   if (econ.ownership > 0) {
     net.title =
       `Economic contribution: cash of ${usd(econ.netCash)} after ${usd(econ.ownership)} ` +
