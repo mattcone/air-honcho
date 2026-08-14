@@ -4899,3 +4899,49 @@ Verified to FAIL on the old code (harrier, turn 4, $1.98M out) before being kept
 Found only because a rejected balance experiment changed which rivals a seed produces and
 one of them tripped it — the suite was passing on luck about seed 41's cast.
 
+### The fix did not destabilise the economy — the two tests are under-powered — 2026-08-14
+
+The stale-book-value fix turned two suite tests red, and the obvious reading was that
+correcting book values had made the world fragile: `grossAssets` fell, so
+`borrowingCapacity` (1.2 x assets - debt) fell, so carriers failed the crises. Several
+hours went into finding a compensating constant on that theory.
+
+**The theory was wrong, and the matched control is what showed it.** Running the SAME
+criteria on seeds the tests do not use, on the pre-fix engine that ships on main today:
+
+| criterion | main today | with the fix |
+|---|---|---|
+| history recovery, 12 unused seeds | **10/12** | **11/12** |
+| antitrust, 10 seeds | **9/10** (seed 200: ZERO survivors) | **9/10** (seed 100: one) |
+
+The failure RATE is unchanged. The fix perturbs trajectories, and on the six seeds the
+history test happens to use, one world flipped from 2 surviving carriers to 1. That is a
+coin landing differently, not a margin being crossed.
+
+Two things follow.
+
+**No compensation is warranted.** `maxLeverage` stays at 1.20. The sweep said 1.21+ makes
+both tests pass, but the value that actually restores the lost borrowing capacity is
+**1.2038** — owned fleet is only 17.6% of gross assets, so a 1.8% book correction moves
+assets by 0.32%. Anything above that is not restoring what the fix removed, it is buying
+a green tick.
+
+**The tests are the defect.** Both assert absolutes — six of six worlds recover, every
+seed keeps more than one carrier — on outcomes that fail roughly one time in ten by
+nature. At an 8% per-world death rate, six seeds all passing has about a 60% chance; that
+test fails two times in five on an arbitrary draw. And the proof does not depend on the
+fix at all: **main, today, produces dead worlds on history seeds 201 and 203, and a world
+with zero surviving rivals on antitrust seed 200.** Those tests are green only because of
+which seeds they picked.
+
+Left for a decision rather than changed here, because widening an invariant is not a call
+to make unattended: both should measure the RATE across more seeds with a stated
+tolerance instead of asserting perfection on six. The antitrust test additionally
+conflates two things — a bankruptcy cascade trivially gives the last survivor 100% share,
+which is not the consolidation the §9 doctrine is about.
+
+**The methodological lesson, third time this week.** The `paxCost` sweep, the phantom
+handling defect, and this all failed the same way: measuring the thing that changed
+instead of measuring whether it changed anything. The control run costs one extra
+command and would have replaced a whole evening here.
+
