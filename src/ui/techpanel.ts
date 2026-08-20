@@ -19,6 +19,43 @@ export function el(tag: string, className?: string, text?: string): HTMLElement 
   return node;
 }
 
+/**
+ * The caution mark: a filled triangle with the bar and dot knocked out in paper.
+ *
+ * Drawn rather than typed. The emoji it stands in for renders in a different font on
+ * every platform, arrives in a colour this palette does not own, and sits wherever
+ * that font's metrics put it. An inline SVG takes its colour from `--caution` and its
+ * size from the type around it, so it is the same mark on every machine. Both fills are
+ * set in the stylesheet rather than as presentation attributes: `var()` inside an SVG
+ * `fill` attribute is not substituted by every engine, and this has to hold up in
+ * Safari on a phone as well as in Chrome.
+ *
+ * Decoration, not information: it flags prose the reader is about to read anyway, so
+ * it is hidden from assistive tech rather than given a label that would be announced
+ * before every one of these notes.
+ */
+export function cautionMark(): SVGSVGElement {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('class', 'caution-mark');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const tri = document.createElementNS(NS, 'path');
+  tri.setAttribute('d', 'M7.13 1.7 0.68 12.87A1 1 0 0 0 1.55 14.37h12.9a1 1 0 0 0 0.87-1.5L8.87 1.7a1 1 0 0 0-1.74 0Z');
+  tri.setAttribute('class', 'caution-body');
+  const bar = document.createElementNS(NS, 'rect');
+  for (const [k, v] of Object.entries({ x: 7.2, y: 5.3, width: 1.6, height: 4.6, rx: 0.8 })) {
+    bar.setAttribute(k, String(v));
+  }
+  bar.setAttribute('class', 'caution-knockout');
+  const dot = document.createElementNS(NS, 'circle');
+  for (const [k, v] of Object.entries({ cx: 8, cy: 12.05, r: 0.95 })) dot.setAttribute(k, String(v));
+  dot.setAttribute('class', 'caution-knockout');
+  svg.append(tri, bar, dot);
+  return svg;
+}
+
 /** A labeled figure. `negative` colors the value for losses. */
 export function figure(label: string, value: string, negative = false): HTMLElement {
   const wrap = el('div', 'figure');

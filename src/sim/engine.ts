@@ -174,7 +174,7 @@ export function applyAction(state: GameState, action: Action): ActionResult {
         return reject(
           state,
           `${getCity(from).name}–${getCity(to).name} is only ${Math.round(distance)} km; ` +
-            `the ground wins below ${CONSTANTS.routes.minDistanceKm} km.`,
+            `below ${CONSTANTS.routes.minDistanceKm} km people drive or take the train.`,
         );
       }
 

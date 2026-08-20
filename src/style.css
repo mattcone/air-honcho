@@ -51,17 +51,23 @@
   --city: #97a09a;
 
   /*
-   * Semantic colour. Five tokens carry every meaning on the board; anything else
+   * Semantic colour. Six tokens carry every meaning on the board; anything else
    * is paper, ink or a rule.
    *
    *   --carrier   the player's livery. Navy, one flat block, never a gradient.
    *   --loss      bad news, and ONLY bad news.
+   *   --caution   a warning the player should read BEFORE committing money.
    *
    * The rule for --loss, in one place so it cannot drift: it marks a figure whose
    * SIGN IS INFORMATION — net income, cash, a margin, a delta, passengers turned
    * away. It does not mark a figure that is negative by construction: a cost line
    * is always negative, so colouring it says nothing and turns the quarterly strip
    * into a wall of red, which is the same uniformity problem in a louder key.
+   *
+   * --caution is ochre rather than a signal yellow, and it never colours a figure —
+   * only a mark set beside prose. A figure that is bad is already --loss; a figure
+   * that is merely worth a second look is not a category the board has. Keeping it
+   * off the numbers is what stops it becoming a third state in every column.
    *
    * There is no gain colour. Nothing on this board is green — a good quarter is
    * simply set in ink, the way a printed annual report sets it.
@@ -71,6 +77,7 @@
      One value, two names; --carrier is the one to reach for in new work. */
   --livery: var(--carrier);
   --loss: #a3341c;
+  --caution: #b5811d;
 
   /*
    * Two typefaces, two jobs, and the division is absolute.
@@ -2055,14 +2062,21 @@ body {
   color: var(--ink-soft);
 }
 
-/* A sector shouting for aircraft. Rule above, loss ink, one line — the same
-   register as the rest of the board, not a callout box. */
+/* A note on turned-away traffic. Rule above, one line, the same register as the
+   rest of the board, not a callout box. Neutral ink by default — the marginal
+   read can be "add a plane" or "you're at the profitable size", neither of which
+   is bad news. Only .is-negative (each aircraft here loses money) gets loss ink,
+   and it needs the higher specificity to win over the bare selector below it. */
 .sector-flag {
   margin: 12px 0 0;
   padding-top: 10px;
   border-top: 1px solid var(--rule-hair);
   font-size: 11.5px;
   line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.sector-flag.is-negative {
   color: var(--loss);
 }
 
@@ -2940,6 +2954,12 @@ body {
   border-bottom: 1px solid var(--rule-hair);
   font-size: 12px;
 }
+/*
+ * No closing rule on the list. The block below always brings its own border-top, so a
+ * trailing border-bottom here drew two hairlines a couple of pixels apart with nothing
+ * between them — visible whenever the actions row followed the costs directly.
+ */
+.prospect-costs li:last-child { border-bottom: none; }
 
 .prospect-cost-label {
   color: var(--ink-soft);
@@ -2956,6 +2976,28 @@ body {
   font-size: 12px;
   line-height: 1.45;
 }
+
+/*
+ * A note that leads with the caution mark. Flex rather than an inline icon so the
+ * prose wraps as a block against the mark instead of running back under it, and so
+ * the mark cannot be dragged off the first line by a long first word.
+ */
+.prospect-note.is-caution {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+.caution-mark {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  /* Sits on the cap height of the first line rather than its top edge. */
+  margin-top: 2px;
+  color: var(--caution);
+}
+.caution-mark .caution-body { fill: currentColor; }
+/* Knocked out in the paper stock, so the mark reads as printed, not as a sticker. */
+.caution-mark .caution-knockout { fill: var(--paper); }
 
 /* Commit and cancel, side by side — the same shape the treasury uses for the
    consequential controls, so the primary one carries the livery. */
@@ -3277,3 +3319,35 @@ body {
     min-height: 44px;
   }
 }
+
+/* --- Fleet comparison: every operated type, ranked (network-planning) ------- */
+.fleet-compare {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fleet-compare th {
+  padding: 0 0 5px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: right;
+}
+
+.fleet-compare th:first-child,
+.fleet-compare td:first-child { text-align: left; }
+
+.fleet-compare td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule-hair);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.fleet-compare .compare-flat { text-align: right; color: var(--ink-soft); }
+.fleet-compare .compare-flat.is-negative { color: var(--loss); }
