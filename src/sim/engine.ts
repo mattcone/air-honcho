@@ -174,7 +174,7 @@ export function applyAction(state: GameState, action: Action): ActionResult {
         return reject(
           state,
           `${getCity(from).name}–${getCity(to).name} is only ${Math.round(distance)} km; ` +
-            `the ground wins below ${CONSTANTS.routes.minDistanceKm} km.`,
+            `below ${CONSTANTS.routes.minDistanceKm} km people drive or take the train.`,
         );
       }
 
@@ -1028,12 +1028,26 @@ export function endTurn(state: GameState): GameState {
 
     carrier.cash += result.netIncome;
 
-    // Owned tails depreciate; leased tails carry no book value.
-    for (const tail of carrier.fleet) {
-      if (tail.ownership === 'owned' && next.turn >= tail.deliversTurn) {
-        tail.bookValue *= 1 - CONSTANTS.fleet.depreciationPerQuarter;
-      }
-    }
+    /*
+     * Owned tails depreciate; leased tails carry no book value.
+     *
+     * Written as a REPLACEMENT of the array, not a mutation of the aircraft in it.
+     * `fleetBookValue` memoises on the identity of this array, so depreciating in
+     * place left the cache holding last quarter's figure while the metal was worth
+     * less — every share price, market cap, borrowing capacity and acquisition quote
+     * downstream of it then used a stale number. Observed before the fix: four
+     * carriers in one seed carrying up to $9.8M of phantom book value, and an
+     * acquisition quoted 0.84% above what the merge actually charged.
+     *
+     * Anything that changes what an aircraft is WORTH has to replace the array. The
+     * two remaining in-place writes in this file both set `routeId`, which
+     * `fleetBookValue` does not read, so they are safe as they are.
+     */
+    carrier.fleet = carrier.fleet.map((tail) =>
+      tail.ownership === 'owned' && next.turn >= tail.deliversTurn
+        ? { ...tail, bookValue: tail.bookValue * (1 - CONSTANTS.fleet.depreciationPerQuarter) }
+        : tail,
+    );
 
     let bailoutTaken = 0;
 

@@ -10,6 +10,7 @@ import {
   acquisitionCost, borrowingCapacity, commands, controlledBy, controls, creditRating, economicInterest,
   equity, equityIssueDiscount, equityRaiseCeiling, industryShare, interestRate, marketCap,
   sharePrice, stakePurchaseCeiling, standaloneEquity,
+  fleetBookValue,
 } from '../src/sim/market.ts';
 import type { Carrier, GameState } from '../src/sim/types.ts';
 import { conditionsFor } from '../src/sim/conditions.ts';
@@ -1694,6 +1695,40 @@ describe('an acquisition is priced at enterprise value', () => {
  * to the first and not the second a dominant buyer was tested against the higher
  * price and charged the lower one.
  */
+/**
+ * The memo on `fleetBookValue` must never outlive the metal it describes.
+ *
+ * It is keyed on the identity of `carrier.fleet`, which is only sound while nothing
+ * changes what an aircraft is WORTH without replacing that array. Quarterly
+ * depreciation did exactly that — mutating `bookValue` in place — so the cache went
+ * on reporting last quarter's figure. Nothing failed loudly: share price, market cap,
+ * borrowing capacity and acquisition quotes all quietly used stale numbers, and it
+ * surfaced only as an acquisition quoted 0.84% above what the merge charged.
+ *
+ * Asserted against a recomputed sum rather than a fixed figure, so this stays true
+ * whatever the balance does — and it fails for ANY future in-place mutation, not just
+ * the one that caused it.
+ */
+describe('the fleet book value cache cannot go stale', () => {
+  it('agrees with a fresh sum for every carrier, every quarter', () => {
+    let game = newGame(41, 'LON', undefined, { difficulty: 'medium', scenario: 'present' });
+    let checked = 0;
+    for (let turn = 0; turn < 40 && !game.gameOver; turn++) {
+      game = endTurn(game);
+      for (const carrier of game.carriers) {
+        if (carrier.fleet.length === 0) continue;
+        const fresh = carrier.fleet.reduce(
+          (sum, a) => sum + (a.ownership === 'owned' ? a.bookValue : 0), 0,
+        );
+        expect(fleetBookValue(carrier), `${carrier.id} at turn ${turn}`).toBeCloseTo(fresh, 6);
+        checked += 1;
+      }
+    }
+    // Guard the guard: a game that never flew would pass this vacuously.
+    expect(checked).toBeGreaterThan(100);
+  }, 60_000);
+});
+
 describe('acquisition quote and charge agree', () => {
   it('charges exactly what acquisitionCost said, at every level of dominance', () => {
     let g = newGame(41, 'LON', undefined, { difficulty: 'medium', scenario: 'present' });

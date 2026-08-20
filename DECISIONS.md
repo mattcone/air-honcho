@@ -4810,3 +4810,138 @@ Nothing in it moves unless the arithmetic itself does. Costs 1ms.
 A failure there is not a balance regression. It means the ground moved, and every
 existing save is suspect until someone establishes what changed and whether a
 migration is owed.
+
+### Softening the posture cost spread — tried and reverted 2026-08-13
+
+A player opened London-Paris with three widebodies on Skim, lost ~31M a quarter and
+reported it as a handling bug. Not a bug, and not the aircraft: switching Skim -> Match
+recovered **28 of the 31M**; the aircraft were worth 3-6M.
+
+The mechanism is a units mismatch. `paxCost` multiplies a FLAT $22 a head, while `fare`
+multiplies a fare that scales with sector length — so Skim costs +$79 a head everywhere
+but earns +$61 on a 343km sector against +$353 on a 5,570km one. Premium postures
+therefore destroy value on short sectors and win on long ones. Defensible; invisible.
+Three observers (player, author, a second model) each diagnosed it wrongly.
+
+**The legibility half shipped** — the tooltip now discloses the live rate ("Skim costs
+about $101 a head to serve, against $22 at Match").
+
+**The tuning half did not.** Skim already removes 28% of the seats, so 4.6x per head on
+top looked like double-counting. Swept as `1 + (old - 1) * k`, protecting the number of
+DISTINCT best postures across six sector lengths:
+
+| k | skim | distinct winners | LON-PAR penalty | verdict |
+|---|---|---|---|---|
+| 1.0 (kept) | 4.60 | 3 | 14.8M | — |
+| 0.7 | 3.52 | 3 | 6.9M | **fails 3 tests** |
+| 0.6 | 3.16 | 2 | 4.5M | collapses diversity |
+
+k=0.7 looked like the knee on my own metric and on a 16-seed survival check (55% -> 60%,
+posture mix undercut 84% -> 73%). The suite disagreed, and it was right:
+
+1. **history**: two of six worlds never recover from the scripted crises.
+2. **economics**: undercut stops winning at LON-FRA (720km, 4x AROSN2). My sweep used one
+   fleet size on six routes and missed the boundary moving under a different config.
+3. **finance**: quote-vs-charge divergence (below).
+
+k=0.9 fixes 1 and 2 and still trips 3. **The lesson is about the sweep, not the constant**:
+six routes at one fleet size is not enough to characterise a change that moves a boundary,
+and a survival check on `present` says nothing about `history`.
+
+### A latent quote-vs-charge bug in acquisitions — found and FIXED 2026-08-13
+
+Falling out of the above, and worth more than the tuning was. `acquisitionCost` and
+`mergeCarrier` do not always agree:
+
+| constants | target | quoted | charged | gap |
+|---|---|---|---|---|
+| current | solstice / tessera / talon | — | — | agree to 1e-13 |
+| k=0.9 | **harrier** | $0.588B | $0.583B | **-$4.91M (-0.84%)** |
+
+The buyer is charged LESS than quoted — the same direction as the dominance-premium bug
+this test was written for. It is carrier-specific, not precision drift: `harrier` does not
+exist in the current-constants run at all. The change did not cause this; it changed which
+rivals a seed produces and one of them exposed it.
+
+So the test passes today partly by luck about which carriers seed 41 has at turn 40, and
+ANY future change to the economy can trip it. That makes it a live correctness bug in the
+financial layer, and it should be fixed before this constant is retuned — otherwise the
+next sweep will keep tripping over it and reading it as its own fault.
+
+this change's job and the sweep should not be tuned to it.
+
+### The stale fleet book value behind it — fixed 2026-08-13
+
+The quote-vs-charge gap above was a symptom. The cause was the `fleetBookValue` memo
+added on 2026-08-07, keyed on the identity of `carrier.fleet` — sound only while nothing
+changes what an aircraft is WORTH without replacing that array. Quarterly depreciation
+did exactly that, mutating `bookValue` in place, so the cache kept serving last quarter's
+figure.
+
+Its own comment named this failure mode ("if aircraft ever start being mutated in place,
+this is the first thing to suspect") and the mutation was already three lines away in
+`endTurn`. Writing the caveat is not the same as checking it.
+
+Nothing failed loudly. Book value feeds `sharePrice` -> market cap -> borrowing capacity,
+acquisition quotes, takeover triggers and the score, so the whole financial layer was
+running a little rich. Measured on seed 41 at turn 40: four carriers carrying up to
+**$9.8M** of phantom book value, and an acquisition quoted **0.84% above** what the merge
+charged — the buyer tested against one price and charged another, which is the third time
+this file has been bitten by that shape.
+
+Fixed by making depreciation REPLACE the array rather than mutate the aircraft in it. The
+two remaining in-place writes both set `routeId`, which `fleetBookValue` never reads.
+
+Pinned by `tests/finance.test.ts` -> "the fleet book value cache cannot go stale", which
+compares the memo against a fresh sum for every carrier every quarter of a 40-turn game.
+Verified to FAIL on the old code (harrier, turn 4, $1.98M out) before being kept.
+
+Found only because a rejected balance experiment changed which rivals a seed produces and
+one of them tripped it — the suite was passing on luck about seed 41's cast.
+
+### The fix did not destabilise the economy — the two tests are under-powered — 2026-08-14
+
+The stale-book-value fix turned two suite tests red, and the obvious reading was that
+correcting book values had made the world fragile: `grossAssets` fell, so
+`borrowingCapacity` (1.2 x assets - debt) fell, so carriers failed the crises. Several
+hours went into finding a compensating constant on that theory.
+
+**The theory was wrong, and the matched control is what showed it.** Running the SAME
+criteria on seeds the tests do not use, on the pre-fix engine that ships on main today:
+
+| criterion | main today | with the fix |
+|---|---|---|
+| history recovery, 12 unused seeds | **10/12** | **11/12** |
+| antitrust, 10 seeds | **9/10** (seed 200: ZERO survivors) | **9/10** (seed 100: one) |
+
+The failure RATE is unchanged. The fix perturbs trajectories, and on the six seeds the
+history test happens to use, one world flipped from 2 surviving carriers to 1. That is a
+coin landing differently, not a margin being crossed.
+
+Two things follow.
+
+**No compensation is warranted.** `maxLeverage` stays at 1.20. The sweep said 1.21+ makes
+both tests pass, but the value that actually restores the lost borrowing capacity is
+**1.2038** — owned fleet is only 17.6% of gross assets, so a 1.8% book correction moves
+assets by 0.32%. Anything above that is not restoring what the fix removed, it is buying
+a green tick.
+
+**The tests are the defect.** Both assert absolutes — six of six worlds recover, every
+seed keeps more than one carrier — on outcomes that fail roughly one time in ten by
+nature. At an 8% per-world death rate, six seeds all passing has about a 60% chance; that
+test fails two times in five on an arbitrary draw. And the proof does not depend on the
+fix at all: **main, today, produces dead worlds on history seeds 201 and 203, and a world
+with zero surviving rivals on antitrust seed 200.** Those tests are green only because of
+which seeds they picked.
+
+Left for a decision rather than changed here, because widening an invariant is not a call
+to make unattended: both should measure the RATE across more seeds with a stated
+tolerance instead of asserting perfection on six. The antitrust test additionally
+conflates two things — a bankruptcy cascade trivially gives the last survivor 100% share,
+which is not the consolidation the §9 doctrine is about.
+
+**The methodological lesson, third time this week.** The `paxCost` sweep, the phantom
+handling defect, and this all failed the same way: measuring the thing that changed
+instead of measuring whether it changed anything. The control run costs one extra
+command and would have replaced a whole evening here.
+

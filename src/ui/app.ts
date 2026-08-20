@@ -310,6 +310,45 @@ export class App {
     }
 
     /*
+     * The map already dims a city this carrier flies to from here, and gives it a
+     * not-allowed cursor — but that was advice, not a rule. The click still built a
+     * prospect, the panel still priced it and still called it "not yet open", and the
+     * only thing that actually refused was the engine, with "You already fly this
+     * route." — after the player had read a full panel of economics and pressed a
+     * button. A pair is a market, not a direction, so the click resolves to the
+     * sector that already exists instead of proposing one that cannot be opened.
+     */
+    const existing = this.game.routes.find(
+      (r) =>
+        r.carrierId === this.game!.playerCarrierId &&
+        marketKey(r.from, r.to) === marketKey(this.from!, id),
+    );
+    if (existing) {
+      this.selectedRouteId = existing.id;
+      this.prospect = null;
+      this.from = null;
+      this.say('You already fly this sector — here it is.');
+      this.render();
+      return;
+    }
+
+    /*
+     * The other half of what the map dims. Below the floor there is no sector to
+     * price, so give the reason here rather than opening a panel whose button the
+     * engine will refuse.
+     */
+    const gap = cityDistanceKm(this.from, id);
+    if (gap < CONSTANTS.routes.minDistanceKm) {
+      this.say(
+        `${getCity(this.from).name}–${getCity(id).name} is only ${Math.round(gap)} km; ` +
+          `below ${CONSTANTS.routes.minDistanceKm} km people drive or take the train.`,
+        'error',
+      );
+      this.render();
+      return;
+    }
+
+    /*
      * Two clicks PROPOSE a sector; they no longer open one.
      *
      * Opening spends real money — a station somewhere new costs multiples of the
@@ -1195,7 +1234,7 @@ export class App {
     for (const [label, value, hint] of [
       ['Seats', String(type.seats), 'Gauge: match it to how thick the market is.'],
       ['Range', `${km(type.rangeKm)} km`, 'The hard limit — it cannot fly a sector longer than this.'],
-      ['Cruise', `${km(type.cruiseKmh)} km/h`, 'Faster metal turns more round trips a week from the same aircraft.'],
+      ['Cruise', `${km(type.cruiseKmh)} km/h`, 'A faster aircraft makes more round trips a week.'],
       ['Fuel', `${fuelPerSeat.toFixed(2)} L`, 'Litres burned per 100 seat-km — lower is thriftier per passenger.'],
       ['Buy', usd(type.price), 'Cash now, an asset on the balance sheet.'],
       ['Lease', `${usd(type.leaseMonthly)}/mo`, 'Rent, with a few months down. Frees the capital a purchase ties up.'],

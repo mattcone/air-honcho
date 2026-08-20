@@ -174,7 +174,7 @@
       "undercut": 0.6,
       "stimulate": 0.42
     },
-    "_comment_paxCost": "Multiplier on the per-passenger cost. This is what stops premium being a cheat code: a business cabin is genuinely expensive to serve — catering, lounges, more cabin crew per passenger, corporate distribution — while a no-frills carrier spends almost nothing per head. Without it, premium raises fares on a sold-out sector for free, because the share it sheds was being spilled anyway.",
+    "_comment_paxCost": "Multiplier on the per-passenger cost. This is what stops premium being a cheat code: a business cabin is genuinely expensive to serve — catering, lounges, more cabin crew per passenger, corporate distribution — while a no-frills carrier spends almost nothing per head. Without it, premium raises fares on a sold-out sector for free, because the share it sheds was being spilled anyway. SOFTENING THIS WAS TRIED AND REVERTED on 2026-08-13 — see DECISIONS.md. The short answer: the spread is load-bearing. Swept as 1+(old-1)*k, the number of distinct best postures across sector lengths holds at three down to k=0.7 and collapses at k=0.6, but the SUITE disagrees with that reading — k=0.7 kills two of six history worlds and breaks the posture-shape test at 720km, and k=0.9 tripped a latent quote-vs-charge bug in the acquisition path, since FIXED (stale fleet book value cache — see DECISIONS.md 2026-08-13). A retune is now unblocked, but it must be swept across MORE than one fleet size and must include the history scenario: the sweep that produced k=0.7 used six routes at one fleet size on `present` only, and missed both regressions.",
     "_comment_attractiveness": "Share of the market the posture wins. Undercut pulls traffic, premium sheds it."
   },
   "fleet": {

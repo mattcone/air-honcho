@@ -37,7 +37,7 @@ export const STRINGS = {
   /** Nothing has been built yet. Each of these is the first thing a player reads. */
   empty: {
     schedule: 'Nothing on the books. Lease an aircraft, then click two cities to price a sector.',
-    fleet: 'No aircraft. You cannot fly a schedule without metal.',
+    fleet: 'No aircraft. You cannot fly a schedule without one.',
     rivals: 'Nobody has noticed you yet.',
     conditions: 'No events running.',
     slots: 'No slots yet. Saving one keeps a game you can come back to — the autosave only ever holds your latest quarter.',

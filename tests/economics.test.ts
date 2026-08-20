@@ -5,9 +5,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  assignedTo, buildMarketIndex, computeRouteEconomics, computeCarrierQuarter, feedFactor,
-  feedMultiplier, idleCost, marketBoard, marketKey, rivalCapacityOf, rivalsOf, stationOverheadFor,
-  technologyValue,
+  assignedTo, breakevenLoad, buildMarketIndex, computeRouteEconomics, computeCarrierQuarter,
+  feedFactor, feedMultiplier, idleCost, marketBoard, marketKey, rivalCapacityOf, rivalsOf,
+  stationOverheadFor, technologyValue,
 } from '../src/sim/economics.ts';
 import {
   attractiveness, clearDemandCache, competitionFareMultiplier, demandShare, expectedLoad,
@@ -16,7 +16,9 @@ import {
 import { getCity, CONSTANTS } from '../src/sim/world.ts';
 import { applyAction, endTurn, getCarrier, newGame } from '../src/sim/engine.ts';
 import { AIRCRAFT_TYPES, getAircraftType } from '../src/sim/fleet.ts';
-import type { Aircraft, Carrier, PricingPosture, Route } from '../src/sim/types.ts';
+import type {
+  Aircraft, Carrier, GameState, PricingPosture, Route, RouteEconomics,
+} from '../src/sim/types.ts';
 import { NEUTRAL, conditionsFor, klassesOf, type Conditions } from '../src/sim/conditions.ts';
 
 const route = (from: string, to: string, posture: PricingPosture = 'match'): Route => ({
@@ -1138,3 +1140,224 @@ describe('the market table and the sector P&L agree', () => {
     expect(compared).toBeGreaterThan(100);
   });
 });
+
+describe('breakeven load', () => {
+  const priced = (dest: string, typeId: string, n: number, posture: PricingPosture) => {
+    const base = newGame(5, 'LON');
+    const route: Route = {
+      id: 'r', carrierId: 'player', from: 'LON', to: dest, posture, openedTurn: 0,
+    };
+    const fleet = Array.from({ length: n }, (_, i) => ({
+      id: `T${i}`, typeId, ownership: 'leased' as const,
+      acquiredTurn: 0, deliversTurn: 0, bookValue: 0, routeId: 'r',
+    }));
+    const carrier = { ...base.carriers[0]!, fleet };
+    const state: GameState = { ...base, carriers: [carrier], routes: [route] };
+    const index = buildMarketIndex(state);
+    return computeRouteEconomics(
+      route, fleet, 0, conditionsFor(state, carrier, route, klassesOf(fleet)),
+      rivalsOf(index, route), rivalCapacityOf(index, route), 1, 0,
+    );
+  };
+
+  /*
+   * The two ways a sector can be unpayable are different facts and the UI tells them
+   * apart to explain each one correctly, so the contract they rest on is pinned here:
+   *
+   *   null   the fare fails at the MARGIN — one more passenger costs more than they
+   *          pay, so selling seats deepens the loss.
+   *   >= 1   the fare beats the marginal cost fine; the aircraft simply cannot hold
+   *          enough people to cover the cost of flying it.
+   *
+   * Collapsing the second into the first (returning null for anything unreachable)
+   * is an easy and tempting simplification, and it would make the panel give the
+   * wrong reason for most unpayable sectors. Both populations are asserted non-empty
+   * so this cannot pass by finding nothing to check.
+   */
+  it('separates a fare that fails at the margin from one needing more than a full cabin', () => {
+    const overhead = 1 + CONSTANTS.fleet.overheadRate;
+    const marginal: string[] = [];
+    const beyondFull: string[] = [];
+
+    for (const dest of ['PAR', 'AMS', 'IST', 'NYC']) {
+      for (const type of AIRCRAFT_TYPES) {
+        for (const posture of ['skim', 'premium', 'match', 'undercut'] as PricingPosture[]) {
+          for (const n of [1, 4]) {
+            let e: RouteEconomics;
+            try { e = priced(dest, type.id, n, posture); } catch { continue; }
+            if (e.capacityWeekly <= 0 || e.loadFactor <= 0) continue;
+
+            const be = breakevenLoad(e, posture);
+            // What one more passenger contributes, net of what carrying them costs.
+            const contribution = (e.revenue - e.cargo) - e.handlingPax * overhead;
+            const where = `${type.id} LON-${dest} ${posture} n=${n}`;
+
+            if (be === null) {
+              marginal.push(where);
+              expect(contribution, `${where} returned null`).toBeLessThanOrEqual(0);
+            } else if (be >= 1) {
+              beyondFull.push(where);
+              expect(contribution, `${where} needs ${be} load`).toBeGreaterThan(0);
+            }
+          }
+        }
+      }
+    }
+
+    expect(marginal.length, 'no marginal-fare sector found to check').toBeGreaterThan(0);
+    expect(beyondFull.length, 'no beyond-full sector found to check').toBeGreaterThan(0);
+  });
+
+  it('splits handling into a per-passenger half that never exceeds the whole', () => {
+    const e = priced('IST', 'AROSN3', 2, 'match');
+    expect(e.handlingPax).toBeGreaterThan(0);
+    expect(e.handlingPax).toBeLessThan(e.handling);
+  });
+
+  /*
+   * The invariant that makes this number trustworthy. If breakeven and the real
+   * cost model ever disagree on whether a sector pays, the indicator is lying and
+   * this fails — which is the whole reason it is derived from the returned
+   * components rather than restated.
+   *
+   * The comparison is against `loadFactor`, not `loadCeiling`. By construction
+   * `netCash = contributionPerLoad × (loadFactor − breakeven)`, so a sector makes
+   * money exactly when breakeven sits below the load it actually flies.
+   * `loadCeiling` is only the most a carrier COULD fill given competition — on a
+   * demand-limited sector the achieved load sits far below it. A sweep of 3,405
+   * configurations (this same aircraft x destination x posture x tail-count space,
+   * before the fix) found `breakeven < loadCeiling` disagreed with the sign of
+   * `netCash` 232 times (6.8%), always optimistically — it called a losing sector
+   * profitable, never the reverse. `breakeven < loadFactor` disagreed 0 times. A
+   * hand-picked list of ~10 configurations used to stand in for this and happened
+   * to miss the whole 6.8% band, which is why it passed while printing wrong
+   * verdicts in the UI. This sweep replaces it and cannot go vacuous quietly
+   * because of the floor asserted at the end.
+   *
+   * `achievableBreakeven`'s `< 1` (and, in the UI, `<= 0`) display policy is a
+   * presentation concern layered on top of this — how to WORD an unreachable or
+   * negative breakeven — and is deliberately not covered here; this test is only
+   * about whether the raw number agrees with the sign of netCash.
+   */
+  it('agrees with the model on whether a sector pays, across many configurations', () => {
+    const destinations = ['PAR', 'IST', 'NYC', 'MAD', 'BER', 'SIN', 'SYD', 'TYO'];
+    const postures: readonly PricingPosture[] = ['skim', 'premium', 'match', 'undercut', 'stimulate'];
+    let checked = 0;
+    for (const dest of destinations) {
+      for (const type of AIRCRAFT_TYPES) {
+        for (const posture of postures) {
+          for (const n of [1, 2, 3]) {
+            const e = priced(dest, type.id, n, posture);
+            if (e.capacityWeekly <= 0) continue;
+            const be = breakevenLoad(e, posture);
+            if (be === null) continue;
+            const label = `${dest} ${type.id}x${n} ${posture}: breakeven ${be} vs loadFactor ${e.loadFactor}, net ${e.netCash}`;
+            expect(be < e.loadFactor, label).toBe(e.netCash > 0);
+            checked += 1;
+          }
+        }
+      }
+    }
+    // A floor, not a target: if a future change to the roster or the demand model
+    // quietly shrinks the swept space to near-nothing, this fails instead of the
+    // test passing vacuously.
+    expect(checked).toBeGreaterThan(300);
+  });
+
+  // A minimal, fully-specified RouteEconomics literal — `breakevenLoad` is a pure
+  // function over a plain object, so these tests construct exactly the situation
+  // they mean to test rather than hunting for a game configuration that happens
+  // to trigger it. Every field is given a real (if arbitrary) number so nothing
+  // is silently `undefined`; the fields the function actually reads are called
+  // out at each call site.
+  const minimalEcon = (overrides: Partial<RouteEconomics>): RouteEconomics => ({
+    distanceKm: 0,
+    aircraftCount: 1,
+    marketDemandWeekly: 0,
+    frequencyWeekly: 0,
+    departuresWeekly: 0,
+    capacityWeekly: 0,
+    demandShare: 0,
+    paxCarriedWeekly: 0,
+    loadFactor: 0,
+    loadCeiling: 0,
+    spilledWeekly: 0,
+    fareOneWay: 0,
+    competitionMultiplier: 1,
+    revenue: 0,
+    cargo: 0,
+    fuel: 0,
+    crew: 0,
+    maintenance: 0,
+    handling: 0,
+    handlingPax: 0,
+    lease: 0,
+    ownership: 0,
+    standing: 0,
+    fixed: 0,
+    overhead: 0,
+    netCash: 0,
+    netEconomic: 0,
+    ...overrides,
+  });
+
+  it('returns null when the fare does not cover the cost of carrying one more passenger', () => {
+    // A fare so thin that, per passenger, it does not even cover the per-passenger
+    // half of handling once the corporate overhead uplift is added on top. This is
+    // the real situation the null branch represents: no achievable load rescues a
+    // sector where each extra passenger loses money — spilling more of them in
+    // would help, not filling more seats. Critically: the per-passenger cost is
+    // grossed up by CONSTANTS.fleet.overheadRate before this comparison; omitting
+    // that grossup would make this sector look viable (fares > handlingPax), which
+    // is wrong and this test pins it.
+    const e = minimalEcon({
+      capacityWeekly: 1000,
+      loadFactor: 0.7,
+      revenue: 1100, // fares + cargo
+      cargo: 100, // fares = 1000
+      handlingPax: 900, // paxCost = 900 * (1 + CONSTANTS.fleet.overheadRate) = 1035 > 1000 fares
+    });
+    expect(breakevenLoad(e, 'skim')).toBeNull();
+  });
+
+  it('returns null for a sector with nothing flying it', () => {
+    const base = newGame(5, 'LON');
+    const route: Route = {
+      id: 'r', carrierId: 'player', from: 'LON', to: 'IST', posture: 'match', openedTurn: 0,
+    };
+    const e = computeRouteEconomics(
+      route, [], 0, conditionsFor(state0(base), base.carriers[0]!, route, klassesOf([])), 0, 0, 1, 0,
+    );
+    expect(breakevenLoad(e, 'match')).toBeNull();
+  });
+
+  it('returns a negative breakeven when cargo alone covers the fixed costs', () => {
+    // Heavy belly cargo, light fixed costs: the hold pays for the sector before a
+    // single passenger boards. The formula still "solves" for a load that covers
+    // costs, and since costs are already covered at zero load the answer comes out
+    // below zero. Callers must treat any result `<= 0` as "pays before a passenger
+    // boards", not print a nonsensical negative load percentage.
+    const e = minimalEcon({
+      capacityWeekly: 1000,
+      loadFactor: 0.5,
+      revenue: 6000, // fares + cargo
+      cargo: 5000, // fares = 1000, comfortably above paxCost below
+      handlingPax: 100, // paxCost = 100 * 1.15 = 115
+      handling: 150,
+      fuel: 50,
+      crew: 30,
+      maintenance: 20,
+      lease: 100,
+      standing: 50,
+      fixed: 100,
+      overhead: 0,
+      // allCosts = 50+30+20+150+100+50+100+0 = 500; fixedCosts = 500 - 115 = 385,
+      // which is far below cargo (5000) — the condition for a negative result.
+    });
+    const be = breakevenLoad(e, 'match');
+    expect(be).not.toBeNull();
+    expect(be!).toBeLessThan(0);
+  });
+});
+
+const state0 = (s: GameState): GameState => s;

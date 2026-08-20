@@ -86,7 +86,9 @@ describe('OPEN_ROUTE', () => {
     // that is unambiguously too short whatever the constant is tuned to.
     const result = open(startedGame(), 'NYC', 'PHL');
     expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/ground wins/i);
+    expect(result.error).toMatch(/New York–Philadelphia/);
+    expect(result.error).toContain('130 km');
+    expect(result.error).toContain(`${CONSTANTS.routes.minDistanceKm} km`);
   });
 
   it('refuses a route to itself', () => {

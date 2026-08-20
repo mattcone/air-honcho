@@ -146,15 +146,33 @@ describe('the world survives its own history', () => {
     return s;
   };
 
-  it('does not leave a dead market once the crises have passed', () => {
-    // This is about the WORLD, not the player: after a scripted 9/11 and COVID
-    // gut the field, the rivals must rebuild rather than flatline forever. Run
-    // the field with an idle player (who never opens a route, so never fails and
-    // never freezes the sim by going bankrupt) and watch the rivals alone —
-    // otherwise a fixture that dies in the crises ends the game early and reads
-    // as a dead world when the field would have recovered fine.
+  /*
+   * Recovery is a RATE, not a certainty — so this measures the rate.
+   *
+   * It used to run six seeds and demand that all six recover. That assertion was
+   * false about the shipped game and green only because of which seeds it picked:
+   * measured on twelve seeds the test does not use, `main` leaves TWO worlds dead
+   * (201 and 203). With a per-world death rate around 10%, six-of-six perfection
+   * fails roughly two draws in five, so the old test reported which seeds were lucky
+   * rather than whether the world recovers.
+   *
+   * It cost an evening to learn that: a correctness fix elsewhere shifted every
+   * trajectory slightly, one world flipped from two surviving carriers to one, and
+   * the red tick was read as the fix destabilising the economy. A matched control on
+   * unused seeds showed the failure rate was identical — 10/12 before, 11/12 after.
+   *
+   * Twelve seeds and a floor of nine. Observed 10-11 of 12 on both sides of that fix,
+   * so nine leaves about one standard deviation of headroom. Be honest about what
+   * this can and cannot see: it catches a change that kills a QUARTER of all worlds,
+   * and it deliberately cannot see one extra dead world, because at twelve seeds that
+   * is indistinguishable from chance. Widening the seed set is the only way to see
+   * smaller effects, and it costs about 21 seconds a seed.
+   */
+  it('leaves most markets alive once the crises have passed', () => {
+    const seeds = [100, 101, 102, 103, 104, 105, 200, 201, 202, 203, 204, 205];
+    const MIN_RECOVERED = 9;
+    const dead: number[] = [];
     let alive = 0;
-    const seeds = [100, 101, 102, 103, 104, 105];
     for (const seed of seeds) {
       const home = Rng.fromSeed(seed ^ 0x5f3759df).pick(CITIES).id;
       let s = newGame(seed, home, 'Idle', { scenario: 'history' });
@@ -166,16 +184,10 @@ describe('the world survives its own history', () => {
       const liveRivals = s.carriers.filter((c) => !c.isPlayer && c.bankruptTurn === null).length;
       // A recovered market: rivals rebuilt a real field, not a graveyard of shells.
       if (peakRoutes > 40 && liveRivals >= 2) alive += 1;
+      else dead.push(seed);
     }
-    // Every seed should recover; allow no dead worlds.
-    expect(alive).toBe(seeds.length);
-    // Six uninterrupted 200-turn games, each now growing a field of up to a dozen
-    // carriers and hundreds of routes — and, with an active M&A market, a great many
-    // state clones — is well past the 5s default.
-  // Budgets raised 2026-08-07: the funded growth allowance lets rivals deploy cash as
-  // fast as they earn it, so a hundred-turn game now carries several times the routes
-  // and fleet it used to. These fixtures are unchanged — the WORK per game grew.
-  }, 420_000);
+    expect(alive, `dead worlds on seeds ${dead.join(', ')}`).toBeGreaterThanOrEqual(MIN_RECOVERED);
+  }, 600_000);
 
   it('runs a full history game without a NaN or a negative-seat state', () => {
     const end = runHistory(103);

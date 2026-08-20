@@ -322,6 +322,15 @@ export interface RouteEconomics {
   readonly crew: number;
   readonly maintenance: number;
   readonly handling: number;
+  /**
+   * The per-PASSENGER half of handling — booking, catering, passenger ground
+   * handling — after the same cost weighting as `handling` itself. The remainder
+   * (`handling - handlingPax`) is charged per departure and does not move with how
+   * full the aircraft flies. Exposed because that split cannot be recovered from
+   * the outside: `handling` is scaled by the market's cost weight and by event
+   * conditions, and neither is on this interface.
+   */
+  readonly handlingPax: number;
   /** Rent on leased tails assigned here (a cash cost). */
   readonly lease: number;
   /**

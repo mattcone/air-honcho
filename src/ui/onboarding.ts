@@ -37,7 +37,7 @@ export const STEPS: readonly OnboardingStep[] = [
   {
     id: 'fleet',
     anchor: '#acquire',
-    text: 'You cannot fly without metal. Lease an aircraft — leasing costs cash every quarter but leaves the bank intact.',
+    text: 'You cannot fly without an aircraft. Lease one — leasing costs cash every quarter but leaves the bank intact.',
     done: (game) => (game?.carriers.find((c) => c.isPlayer)?.fleet.length ?? 0) > 0,
   },
   {
