@@ -186,6 +186,39 @@ flying. **Market clearing is the fix for the load-factor discrepancy too, not
 just for competition.** Do not attempt to close that gap by lowering
 `maxLoadFactor` — see the note on it in constants.json.
 
+### The history timeline's hazard runs backwards — open 2026-08-22
+
+**What.** The later the crisis, the less it does. Measured over 120 all-AI history
+games on the shipped balance, as a *conditional* hazard — of the carriers that enter
+each window, the share that die inside it:
+
+| crisis | entered | died | hazard |
+|---|---|---|---|
+| 2001-03 recession + 9/11 + SARS | 96 | 28 | 29.2% |
+| 2008-10 oil spike + recession | 67 | 11 | 16.4% |
+| 2020-22 COVID + pilot shortage + oil | 53 | 0 | **0.0%** |
+
+**Why it matters.** COVID is the harshest card in the deck — demand x0.32 for six
+quarters, deeper than anything else scripted or random — and it kills nobody at all.
+The scenario is sold on living through 9/11, 2008 and COVID, and the third of those
+is a formality. The survival curve shows the same shape: 45.0% alive entering 2012,
+44.2% at the 2024 horizon. **The game is decided by about 2012** and the remaining
+twelve years change nothing.
+
+**This is not an event-deck problem.** It is the same thing as "The game cannot be
+lost after about year five" above, seen from the other end: by 2020 a surviving
+carrier's balance sheet absorbs any multiplier the deck can apply, so severity stops
+being expressible. Making the COVID card harsher would not fix it — the card is
+already the harshest one there is.
+
+**Options, none taken.** (a) Leave it: a scenario where the early years decide the
+game and the late years are a victory lap is a legitimate arc, and the crises are in
+the right order historically. (b) Scale late-game shocks to the carrier rather than
+the market, so severity keeps meaning something against a big balance sheet — this is
+really the year-five problem and belongs with it, not with the history deck. (c)
+Shorten the horizon again so the game ends nearer where it is still live; 2012 is
+where the outcome stops changing, though ending there throws away COVID entirely.
+
 ### Owned aircraft look free at route level — open 2026-07-22
 
 Same investigation. A leased aircraft charges rent to the sector every quarter; a
@@ -314,6 +347,69 @@ Worth doing before any further work on the Territorial — the archetype current
 cannot be tuned honestly against a metric that rewards the wrong thing.
 
 ## Taken
+
+### History mode was unsurvivable because of one mis-scaled card — 2026-08-20
+
+**What.** Three changes: the history start moved 2000 -> 1995; the player is dealt a
+small operating airline instead of founding one; and the 2003 beat fires a new
+regional `sars` card instead of the generic global `pandemic`.
+
+**Why it came up.** Players reported that surviving history mode was near impossible.
+It was not an exaggeration — measured over 60 all-AI games at the 2000 start, **every
+single game ended in bankruptcy**, with death-turn quartiles of 14/14/16. Everyone
+died within two quarters of each other, in 2003. That is a scripted death, not a
+difficulty setting, and no amount of skill reaches the rest of the timeline through it.
+
+**What was actually wrong.** Not the startup problem, though that was real. Mapping
+the demand multiplier quarter by quarter showed **sixteen consecutive quarters with no
+normal trading** (turns 24-39 at a 2000 start), bottoming at x0.336 — *worse than the
+COVID card itself* (0.32) — while fares sat at 0.765. Three causes compound:
+
+1. Scripted beats always run `maxDuration`, so the 2001 recession runs its full 12
+   quarters rather than a rolled length.
+2. The 2003 beat fired the generic `pandemic` card: demand x0.42 **worldwide** for 7
+   quarters. That card is right as a random draw and wrong as SARS, which was regional
+   and short — the engine already supports regional scope, and `sept11` uses it.
+3. Event effects stack multiplicatively with no floor.
+
+**Before / after**, 60 all-AI games per arm, `--scenario history`:
+
+| config | survived | bankrupt | median life | mean rival routes |
+|---|---|---|---|---|
+| 2000 start, startup | 0/60 | 60 | 14 turns | 1.8 |
+| + 1995 start and dealt airline | 6/60 | 54 | 31 turns | 39.7 |
+| + `sars` replacing global `pandemic` | 15/120 (12.5%) | — | 31 turns | — |
+
+**The levers are superadditive, and measuring them separately is misleading.** A
+starting-cash sweep run *before* the SARS fix showed 6/4/7/9 survivors at x1/1.5/2/2.5
+— non-monotonic noise, and it was written up as "cash is not the lever". That was
+wrong. Re-swept against the fixed deck, 120 games an arm across two disjoint seed
+ranges:
+
+| starting cash | survived | |
+|---|---|---|
+| x1 | 15/120 | 12.5% +/- 3.0 |
+| x1.5 | 32/120 | 26.7% +/- 4.0 |
+| x2 | 24/120 | 20.0% +/- 3.7 |
+| x2.5 | 36/120 | 30.0% +/- 4.2 |
+
+x1 -> x1.5 is a real step (14.2 points, 2.8 SE); above 1.5 the curve is flat inside
+the noise (1.5 against 2.5 is 0.6 SE). **Shipped at 1.5.** Reserves could not matter
+while a sixteen-quarter collapse killed everyone regardless of what they held, which
+is why the first sweep read as noise — sweep a lever against the current deck or the
+answer means nothing.
+
+**Process note.** That first sweep rewrote `constants.json` on each arm and left it at
+2.5. Every measurement taken afterwards inherited a 2.5x cash buff that was reported
+as 1x, including a headline survival figure that was really 12.5% and was quoted as
+32%. A sweep that writes to a tracked file has to reset it explicitly.
+
+**Still open.** The dealt fleet is brand-new metal at full list price (median $279M of
+book value, against $120M of starting cash) while its own comment claims the airline
+has been trading for years. Making it mid-life — aged, part-depreciated — is more
+honest and slightly harder, and would need re-measuring.
+
+
 
 ### The Maximum button that went dark when you pressed it — 2026-08-05
 

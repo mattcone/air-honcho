@@ -876,7 +876,36 @@ export class App {
    * This states the job, states the win and lose conditions, and offers ten bases
    * that genuinely play differently, each with the figures behind it.
    */
+  /**
+   * Stamp the era chooser's dates and lengths from the scenario config.
+   *
+   * They used to be typed into the markup, and went stale the moment the history
+   * start moved 2000 -> 1995: the modal still offered "History, 2000 — Start 2000"
+   * for a game that opened in 1995. Copy belongs in the HTML; numbers that the sim
+   * owns do not.
+   */
+  private labelScenarios(): void {
+    const qpy = CONSTANTS.game.quartersPerYear;
+    for (const id of ['present', 'history'] as const) {
+      const input = this.nodes.startDialog.querySelector(`input[name="start-scenario"][value="${id}"]`);
+      const option = input?.closest('.scenario-option');
+      if (!option) continue;
+      const { startYear, horizonTurns } = CONSTANTS.scenarios[id];
+      const name = option.querySelector('[data-scenario-name]');
+      const note = option.querySelector('[data-scenario-note]');
+      if (name && id === 'history') name.textContent = `History, ${startYear}`;
+      if (note) {
+        // Idempotent: the dialog reopens on New game, and reading the rendered text
+        // back would compound into "Start 1995. Start 1995. ... 50 years. 50 years."
+        const base = note.getAttribute('data-scenario-base') ?? note.textContent ?? '';
+        note.setAttribute('data-scenario-base', base);
+        note.textContent = `Start ${startYear}. ${base} ${Math.round(horizonTurns / qpy)} years.`;
+      }
+    }
+  }
+
   private openStartDialog(): void {
+    this.labelScenarios();
     const select = this.nodes.startHome;
     if (select.options.length === 0) {
       for (const base of HOME_BASES) {
@@ -911,7 +940,16 @@ export class App {
     });
     this.verdictShownFor = null;
     if (this.nodes.startDialog.open) this.nodes.startDialog.close();
-    this.say(`${getCity(home).name} is your home base. Lease an aircraft, then open a sector.`);
+    /*
+     * History hands over a going concern, so the opening instruction has to match
+     * what is actually on the board — telling a player to lease their first aircraft
+     * while three of them are already flying reads as a bug in the game.
+     */
+    const flying = getCarrier(this.game, this.game.playerCarrierId).fleet.length;
+    this.say(flying > 0
+      ? `${getCity(home).name} is your home base, and you have inherited a working airline. `
+        + `Look over what it flies before the first crisis arrives.`
+      : `${getCity(home).name} is your home base. Lease an aircraft, then open a sector.`);
     this.commit();
   }
 

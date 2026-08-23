@@ -20,10 +20,10 @@ import type {
   TailId,
 } from './types.ts';
 import { Rng } from './rng.ts';
-import { cityDistanceKm, getCity, hasCity, CONSTANTS, difficultyMods } from './world.ts';
+import { CITIES, cityDistanceKm, getCity, hasCity, CONSTANTS, difficultyMods } from './world.ts';
 import {
-  aircraftAvailable, ageYears, canReach, deliveryQuarters, getAircraftType, hasAircraftType,
-  leaseBreakFee, overhaulCost, rollAircraftIntro,
+  AIRCRAFT_TYPES, aircraftAvailable, ageYears, canReach, deliveryQuarters, getAircraftType,
+  hasAircraftType, leaseBreakFee, overhaulCost, rollAircraftIntro,
 } from './fleet.ts';
 import {
   buildMarketIndex, computeCarrierQuarter, computeRouteEconomics, feedFactor, marketKey,
@@ -37,7 +37,7 @@ import {
   equityIssueDiscount, equityRaiseCeiling, marketCap, money, sharePrice, trailingEarnings,
 } from './market.ts';
 import { conditionsFor, klassesOf, marketFuelPrice } from './conditions.ts';
-import { seasonalDemandFactor } from './demand.ts';
+import { marketDemandWeekly, seasonalDemandFactor } from './demand.ts';
 import { getTechNode, hasTechNode, landDeliveries, techStatus } from './tech.ts';
 import { getArchetype, planRivals, runRivals } from './ai/archetype.ts';
 
@@ -80,6 +80,121 @@ function routeId(carrierId: CarrierId, from: CityId, to: CityId): string {
 export interface NewGameOptions {
   readonly scenario?: 'present' | 'history';
   readonly difficulty?: Difficulty;
+  /**
+   * Deal `history` its opening airline. Default true; set false for a carrier that
+   * starts empty in the history world.
+   *
+   * This exists because an opening airline is not always wanted from a fixture. A
+   * harness that measures the RIVAL field uses a player who never acts, and a player
+   * who never acts but owns aircraft goes bankrupt in the crisis window — which ends
+   * the game and stops the measurement at turn 31 with the field still growing. An
+   * observer has to be able to hold still.
+   */
+  readonly startingOperation?: boolean;
+}
+
+/*
+ * A stream of its own, like the rival cast's. Mixing this draw into the main RNG
+ * would shift every later roll and change what a present-day seed plays like, for
+ * a feature present-day games do not have.
+ */
+const STARTING_OPERATION_STREAM = 0x517cc1b7;
+
+/** The player's carrier id. Was a bare 'player' literal in three places. */
+const PLAYER_CARRIER_ID = 'player';
+
+/**
+ * The going concern that `history` deals the player instead of a startup.
+ *
+ * The scenario sells running a carrier THROUGH the 2000s, but it used to hand you an
+ * empty balance sheet in the year before the recession: measured at the old 2000
+ * start, all 60 games ended in bankruptcy with death-turn quartiles of 14/14/16 —
+ * everyone dying within two quarters of each other in 2003, having met the recession
+ * on turn 4 and September 11 on turn 6 as a one-year-old airline. Skill was not the
+ * variable. An airline that already flies has revenue when the first crisis lands,
+ * which is the difference between a hard scenario and a scripted one.
+ *
+ * Dealt at RANDOM rather than optimised, and deliberately so: the pool is every
+ * destination a period aircraft can reach with a market worth flying, and the draw
+ * decides which of them you inherit. Two seeds never open the same airline, and the
+ * opening position is a hand you are dealt rather than a solved one — which is also
+ * why it does not use the AI's `bestNewSector`.
+ *
+ * Grants are free: no opening cost, no station fee, aircraft owned outright and
+ * already delivered. The fiction is that this airline has been trading for years, so
+ * charging it to found itself would undo the point.
+ */
+function dealStartingOperation(
+  seed: number,
+  carrierId: CarrierId,
+  homeCityId: CityId,
+  aircraftIntro: Record<string, number>,
+): { fleet: Aircraft[]; routes: Route[] } {
+  const cfg = CONSTANTS.scenarios.history.startingOperation;
+  const rng = Rng.fromSeed(seed ^ STARTING_OPERATION_STREAM);
+  const home = getCity(homeCityId);
+
+  // Period metal only. `aircraftIntro` is keyed in turns from the start of the game,
+  // so anything not yet launched carries a positive intro turn.
+  const period = AIRCRAFT_TYPES.filter((t) => (aircraftIntro[t.id] ?? 0) <= 0);
+  if (period.length === 0) return { fleet: [], routes: [] };
+  const longestRange = Math.max(...period.map((t) => t.rangeKm));
+
+  const reach = Math.min(longestRange, cfg.maxDestinationKm);
+  const pool = CITIES.filter((c) => {
+    if (c.id === homeCityId) return false;
+    const dist = cityDistanceKm(homeCityId, c.id);
+    if (dist < CONSTANTS.routes.minDistanceKm || dist > reach) return false;
+    // A granted sector that cannot pay is worse than no grant: it still owes a
+    // station every quarter.
+    return marketDemandWeekly(home, c) >= cfg.minMarketWeekly;
+  });
+
+  // Fisher-Yates over a copy. `pool` comes out in CITIES order, so this shuffle is
+  // the whole reason two seeds inherit different networks.
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = rng.int(0, i);
+    const swap = shuffled[i]!;
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = swap;
+  }
+
+  const wanted = rng.int(cfg.minRoutes, cfg.maxRoutes);
+  const fleet: Aircraft[] = [];
+  const routes: Route[] = [];
+  for (const dest of shuffled) {
+    if (routes.length >= wanted) break;
+    const dist = cityDistanceKm(homeCityId, dest.id);
+    const usable = period.filter((t) => canReach(t, dist));
+    if (usable.length === 0) continue;
+    const type = usable[rng.int(0, usable.length - 1)]!;
+    const id = routeId(carrierId, homeCityId, dest.id);
+    routes.push({
+      id, carrierId, from: homeCityId, to: dest.id, posture: 'match', openedTurn: 0,
+    });
+    /*
+     * Second-hand metal, not a showroom delivery.
+     *
+     * The grant used to be brand-new aircraft at full list price, which contradicted
+     * the fiction beside it — an airline that has traded for years does not own a
+     * fleet with zero hours on it — and quietly handed the player a balance sheet
+     * worth several times their cash. Aged between one and six years, with book value
+     * depreciated over that age exactly as `endTurn` would have depreciated it, so
+     * the opening balance sheet is one the game's own rules could have produced.
+     */
+    const ageQuarters = rng.int(cfg.minFleetAgeQuarters, cfg.maxFleetAgeQuarters);
+    fleet.push({
+      id: `AC-${fleet.length + 1}`,
+      typeId: type.id,
+      ownership: 'owned',
+      acquiredTurn: -ageQuarters,
+      deliversTurn: -ageQuarters,
+      bookValue: type.price * (1 - CONSTANTS.fleet.depreciationPerQuarter) ** ageQuarters,
+      routeId: id,
+    });
+  }
+  return { fleet, routes };
 }
 
 export function newGame(
@@ -92,17 +207,31 @@ export function newGame(
   const difficulty = options.difficulty ?? 'medium';
   const mods = difficultyMods(difficulty);
   const { startYear, horizonTurns } = CONSTANTS.scenarios[scenario];
+  const aircraftIntroRoll = rollAircraftIntro(seed, startYear);
   if (!hasCity(playerHomeCityId)) throw new Error(`Unknown home city: ${playerHomeCityId}`);
 
+  /*
+   * History alone starts you mid-flight. Present-day deliberately does not: its
+   * opening decision — where to fly first, and on what — is the tutorial, and the
+   * scenario has no crisis timeline bearing down on turn 4.
+   */
+  const opening = scenario === 'history' && options.startingOperation !== false
+    ? dealStartingOperation(seed, PLAYER_CARRIER_ID, playerHomeCityId, aircraftIntroRoll)
+    : { fleet: [] as Aircraft[], routes: [] as Route[] };
+
   const player: Carrier = {
-    id: 'player',
+    id: PLAYER_CARRIER_ID,
     name: playerName,
     isPlayer: true,
     color: '#1b3a6b',
     homeCityId: playerHomeCityId,
     archetypeId: null,
-    cash: CONSTANTS.game.startingCash * mods.startingCash,
-    fleet: [],
+    // Scenario reserves on top of the difficulty multiplier: history starts an
+    // airline that has been trading for years, and reserves are what carries one
+    // through a crisis the timeline guarantees is coming.
+    cash: CONSTANTS.game.startingCash * mods.startingCash
+      * (scenario === 'history' ? CONSTANTS.scenarios.history.startingCashMultiplier : 1),
+    fleet: opening.fleet,
     tech: [],
     techInProgress: [],
     hedge: null,
@@ -122,7 +251,7 @@ export function newGame(
     schemaVersion: SCHEMA_VERSION,
     seed,
     rngState: Rng.fromSeed(seed).save(),
-    seq: 0,
+    seq: opening.fleet.length,
     turn: 0,
     fuelPrice: CONSTANTS.game.startingFuelPricePerL,
     baseCompletion: CONSTANTS.events.completionMean,
@@ -138,10 +267,10 @@ export function newGame(
     rivalPlan: planRivals(Rng.fromSeed(seed ^ 0x9e3779b9), difficulty),
     enteredRivals: [],
     carriers: [player],
-    routes: [],
+    routes: opening.routes,
     history: [],
     playerPeakEquity: player.cash,
-    aircraftIntro: rollAircraftIntro(seed, startYear),
+    aircraftIntro: aircraftIntroRoll,
     gameOver: null,
   };
 }

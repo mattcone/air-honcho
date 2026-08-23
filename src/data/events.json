@@ -57,7 +57,32 @@
       "effects": {
         "demand": 0.42,
         "fare": 0.85
-      }
+      },
+      "group": "health",
+      "_comment": "On the `health` axis with sars: a random pandemic scare must not open on top of a scripted outbreak, the same way an oil glut must not open during a spike. Free for present-day play, where this card is the only health card that can run and was already barred from re-drawing itself."
+    },
+    {
+      "id": "sars",
+      "crisis": true,
+      "group": "health",
+      "name": "SARS outbreak",
+      "blurb": "A respiratory outbreak empties cabins across Asia. Border screening and cancelled conferences do the rest; the rest of the world flies on.",
+      "tone": "bad",
+      "weight": 0,
+      "minTurn": 999,
+      "minDuration": 3,
+      "maxDuration": 3,
+      "scope": {
+        "regions": [
+          "EAS",
+          "SEA"
+        ]
+      },
+      "effects": {
+        "demand": 0.55,
+        "fare": 0.88
+      },
+      "_comment": "The 2003 historical beat, which used to fire the generic global `pandemic` card (demand 0.42 worldwide for its full 7 quarters). That is COVID-scale — the generic card is right as a random draw and wrong as SARS. Real SARS was regional and short: Asia-Pacific traffic collapsed for roughly two to three quarters while North Atlantic flying carried on. Scripted-only, like sept11 and covid: weight 0 and minTurn 999 keep it out of the random deck."
     },
     {
       "id": "recession",
@@ -327,7 +352,9 @@
         "demand": 0.32,
         "fare": 0.82
       },
-      "crisis": true
+      "crisis": true,
+      "group": "health",
+      "_comment": "On the `health` axis with sars: a random pandemic scare must not open on top of a scripted outbreak, the same way an oil glut must not open during a spike. Free for present-day play, where this card is the only health card that can run and was already barred from re-drawing itself."
     },
     {
       "id": "market-turmoil",
@@ -390,7 +417,8 @@
     {
       "year": 2001,
       "quarter": 1,
-      "eventId": "recession"
+      "eventId": "recession",
+      "durationQuarters": 6
     },
     {
       "year": 2001,
@@ -400,7 +428,7 @@
     {
       "year": 2003,
       "quarter": 2,
-      "eventId": "pandemic"
+      "eventId": "sars"
     },
     {
       "year": 2004,

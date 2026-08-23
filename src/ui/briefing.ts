@@ -15,7 +15,7 @@ import {
   rivalsOf, stationOverheadFor,
 } from '../sim/economics.ts';
 import { conditionsFor, klassesOf, marketFuelPrice } from '../sim/conditions.ts';
-import { getEvent } from '../sim/events.ts';
+import { getEvent, isCrisisActive } from '../sim/events.ts';
 import { CONSTANTS } from '../sim/world.ts';
 import { usd, rate, stake } from './format.ts';
 import { splitFlap } from './splitflap.ts';
@@ -159,10 +159,42 @@ export function buildBriefing(prev: GameState, next: GameState): Briefing {
     });
   }
 
+  const crisisRunning = isCrisisActive(next);
   const burn = last
     ? last.fuel + last.crew + last.maintenance + last.handling + last.lease + last.standing +
       last.fixed + last.overhead + last.interest + Math.max(0, last.tax)
     : 0;
+
+  /*
+   * The one lever that moves in a downturn, named while it can still be pulled.
+   *
+   * A crisis empties aircraft; it does not empty the rent on them. Traced through
+   * 2001-03 on a North Atlantic carrier, a losing quarter of -$54.5M carried $44.2M
+   * of lease — the sectors were still flying at 64-72% load, and it was the fixed
+   * bill that did the damage. The only alert that ever mentioned this fired when
+   * cash was already under one quarter's costs, far too late to hand metal back,
+   * and it said "cut spending" without saying which spending.
+   *
+   * Fires only when rent is at least half the loss, so it names the lever exactly
+   * when pulling it would work, and stays quiet when the problem is somewhere else.
+   */
+  const crisisLoss = last ? -last.netIncome : 0;
+  if (
+    crisisRunning && last && crisisLoss > 0
+    // Rent alone covers the loss, so handing metal back is a lever that reaches it.
+    && last.lease >= crisisLoss
+    // ...and the loss is worth acting on: a twentieth of the bank in one quarter.
+    && crisisLoss >= me.cash * 0.05
+  ) {
+    alerts.push({
+      tone: 'warn',
+      text:
+        `A crisis is running and you lost ${usd(crisisLoss)} this quarter while paying ` +
+        `${usd(last.lease)} in rent on leased aircraft — more than the loss itself. Rent does ` +
+        `not fall when demand does, so handing aircraft back, or closing the sectors bleeding ` +
+        `worst, is the lever that reaches this. Every quarter you wait costs the rent again.`,
+    });
+  }
   if (me.cash >= 0 && burn > 0 && me.cash < burn) {
     alerts.push({
       tone: me.cash < burn * 0.5 ? 'danger' : 'warn',

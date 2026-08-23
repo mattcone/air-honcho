@@ -744,7 +744,16 @@ function renderConsolidated(panel: HTMLElement, state: GameState): void {
   const head = el('div', 'inspector-head');
   head.append(el('h2', 'inspector-title', last ? `${turnLabel(last.turn - 1, state.startYear)} result` : 'No quarters flown'));
   if (!last) {
-    head.append(el('p', 'inspector-sub', 'Open a sector, put an aircraft on it, then close the books.'));
+    /*
+     * Before the first quarter is flown there are no results to show, but WHY there
+     * are none differs: history hands over an airline already flying, so telling that
+     * player to open a sector and put an aircraft on it describes work they inherited
+     * done. The board it sits beside shows three sectors at 86% load.
+     */
+    const flying = state.routes.some((r) => r.carrierId === state.playerCarrierId);
+    head.append(el('p', 'inspector-sub', flying
+      ? 'Close the books to fly your first quarter and see what this airline earns.'
+      : 'Open a sector, put an aircraft on it, then close the books.'));
     panel.append(head);
     return;
   }
@@ -1038,51 +1047,63 @@ function renderRoute(
    * against the same conditions, rivals and feed as the figures printed above it,
    * not recomputed from scratch.
    */
-  if (econ.spilledWeekly > econ.paxCarriedWeekly && econ.paxCarriedWeekly > 0) {
+  // `flying` in the guard, not asserted inside: every branch now clones it for the
+  // probe, and carrying passengers already implies something is assigned and
+  // delivered — so let the compiler know rather than insisting.
+  if (flying && econ.spilledWeekly > econ.paxCarriedWeekly && econ.paxCarriedWeekly > 0) {
     const ratio = econ.spilledWeekly / econ.paxCarriedWeekly;
     const achievable = achievableBreakeven(breakevenLoad(econ, route.posture));
     // Against the load actually flown, not the ceiling — see `achievableBreakeven`.
     const cannotPay = achievable === null || achievable >= econ.loadFactor;
     const note = el('p', 'sector-flag');
 
-    if (cannotPay) {
-      // Each aircraft here loses money; more metal only deepens the loss.
-      note.classList.add('is-negative');
-      note.textContent =
-        `${STRINGS.sector.spilling} It turns away ${ratio.toFixed(1)}x what it carries, and ` +
-        `each aircraft here loses money — breakeven ${achievable === null ? 'is unreachable' : pct(achievable)} ` +
-        `against your load of ${pct(econ.loadFactor)} (ceiling ${pct(econ.loadCeiling)}). More aircraft ` +
-        `deepen the loss; try a smaller aircraft, a cheaper posture, or a longer sector.`;
-    } else {
-      /*
-       * Price the sector with one more of what is already on it — but clone from
-       * a tail that is actually flying, not just the first one assigned.
-       *
-       * `assigned` is in `carrier.fleet` order, i.e. purchase order, not delivery
-       * order — and ASSIGN_AIRCRAFT lets a player assign a tail to a route before
-       * it has arrived. If `assigned[0]` happens to be one of those not-yet-
-       * delivered tails, cloning it inherits its future `deliversTurn`, and
-       * `computeRouteEconomics` skips any tail the sim hasn't delivered yet — so
-       * the probe would fly nothing and add zero capacity. A probe that flies
-       * nothing makes "one more would add about $0" look like a real answer,
-       * which is worse than no answer: it tells the player they're at the
-       * profitable size when they might not be. Pin the probe's delivery to the
-       * current turn so it always actually flies. (`flying` computed once above,
-       * shared with the verdict label.)
-       */
-      const extra = [...assigned, { ...flying!, id: `${flying!.id}-probe`, deliversTurn: state.turn }];
-      const withMore = computeRouteEconomics(
-        route, extra, state.turn,
-        conditionsFor(state, carrier, route, klassesOf(extra)),
-        rivalsOf(index, route), rivalCapacityOf(index, route), feed, stationOverhead,
-      );
-      const delta = withMore.netCash - econ.netCash;
-      const name = getAircraftType(flying!.typeId).name;
+    /*
+     * Price one more aircraft — ALWAYS, including when the sector is losing money.
+     *
+     * This used to short-circuit on `cannotPay` and assert that "more aircraft deepen
+     * the loss", which is the opposite of the truth often enough to matter: the
+     * station charge and the sector fee are per-SECTOR, not per-aircraft, so a second
+     * aircraft carries none of them and break-even falls as the fleet grows. Measured
+     * on Mexico City-New York at Match: one aircraft loses $91K at a break-even of
+     * 88.5% against 87.5% load, and two make $192K at 86.2% — the advice said to
+     * shrink where the answer was to grow. And it fired precisely on sectors turning
+     * traffic away, which is where adding capacity is most likely to be right.
+     *
+     * Clone from a tail that is actually FLYING, not just the first one assigned.
+     * `assigned` is in purchase order, and a tail can be assigned before it arrives;
+     * cloning one of those inherits its future `deliversTurn`, and the probe would
+     * fly nothing and add zero capacity — making "one more would add about $0" look
+     * like an answer when it is an artefact.
+     */
+    const extra = [...assigned, { ...flying, id: `${flying.id}-probe`, deliversTurn: state.turn }];
+    const withMore = computeRouteEconomics(
+      route, extra, state.turn,
+      conditionsFor(state, carrier, route, klassesOf(extra)),
+      rivalsOf(index, route), rivalCapacityOf(index, route), feed, stationOverhead,
+    );
+    const delta = withMore.netCash - econ.netCash;
+    const name = getAircraftType(flying.typeId).name;
+    const spills = `${STRINGS.sector.spilling} It turns away ${ratio.toFixed(1)}x what it carries`;
+
+    if (!cannotPay) {
       note.textContent = delta > 0
-        ? `${STRINGS.sector.spilling} It turns away ${ratio.toFixed(1)}x what it carries. ` +
-          `One more ${name} would add about ${usd(delta)} a quarter.`
-        : `${STRINGS.sector.spilling} It turns away ${ratio.toFixed(1)}x what it carries, but ` +
-          `you are at the profitable size — another ${name} would cost about ${usd(-delta)} a quarter.`;
+        ? `${spills}. One more ${name} would add about ${usd(delta)} a quarter.`
+        : `${spills}, but you are at the profitable size — another ${name} would cost about `
+          + `${usd(-delta)} a quarter.`;
+    } else if (delta > 0) {
+      // Losing at this size, but growing into it: the fixed half of the cost base is
+      // carried by the sector, so the next aircraft joins a cheaper one.
+      note.textContent = `${spills}, and at this size it does not cover its costs — but the `
+        + `station does not charge twice for a second aircraft. One more ${name} would add `
+        + `about ${usd(delta)} a quarter`
+        + (withMore.netCash > 0 ? ' and put the sector into profit.' : ', though it would still lose money.');
+    } else {
+      note.classList.add('is-negative');
+      note.textContent = `${spills}, and each aircraft here loses money — breakeven `
+        + `${achievable === null ? 'is unreachable' : pct(achievable)} against your load of `
+        + `${pct(econ.loadFactor)} (ceiling ${pct(econ.loadCeiling)}). Another ${name} would `
+        + `deepen it by about ${usd(-delta)} a quarter; try a cheaper posture, a different `
+        + `aircraft, or a longer sector.`;
     }
     panel.append(note);
   }
