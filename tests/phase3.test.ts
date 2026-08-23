@@ -223,11 +223,18 @@ describe('the event deck', () => {
   });
 
   it('lets a scripted historical beat clear a lingering random event on its axis', () => {
-    // 2008 Q2 scripts an oil spike (turn 33); a random glut still running must yield.
+    // 2008 Q2 scripts an oil spike; a random glut still running must yield to it.
+    // The turn is DERIVED: hardcoding it pinned the arithmetic of a 2000 start, and
+    // the same number became 2003 — a different beat entirely — when the start moved.
+    const qpy = CONSTANTS.game.quartersPerYear;
+    const spike = (2008 - CONSTANTS.scenarios.history.startYear) * qpy + (2 - 1);
     const hist = newGame(5, 'LON', undefined, { scenario: 'history' });
-    const glut = { source: 'oil-glut', kind: 'event' as const, until: 40, effects: getEvent('oil-glut').effects };
-    const after = endTurn({ ...hist, turn: 32, events: [glut] });
-    expect(after.turn).toBe(33);
+    const glut = {
+      source: 'oil-glut', kind: 'event' as const, until: spike + 7,
+      effects: getEvent('oil-glut').effects,
+    };
+    const after = endTurn({ ...hist, turn: spike - 1, events: [glut] });
+    expect(after.turn).toBe(spike);
     const sources = after.events.map((e) => e.source);
     expect(sources).toContain('oil-spike'); // the scripted beat fired
     expect(sources).not.toContain('oil-glut'); // and cleared the contradiction

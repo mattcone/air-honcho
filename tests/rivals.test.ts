@@ -537,7 +537,7 @@ describe('merger review stops the field consolidating to one', () => {
    *   of the book-value fix, was 50%.
    *
    *   COLLAPSE is a rate, and gets a tolerance. Roughly one field in ten dies over a
-   *   200-turn history game, on the shipped code as much as on any branch: `main`
+   *   full history game, on the shipped code as much as on any branch: `main`
    *   today ends seed 200 with ZERO surviving rivals. Demanding that every seed keep a
    *   live field asserts something false about the game.
    */
@@ -549,7 +549,14 @@ describe('merger review stops the field consolidating to one', () => {
     let liveFields = 0;
     const collapsed: number[] = [];
     for (const seed of seeds) {
-      let state = newGame(seed, 'LON', undefined, { scenario: 'history' });
+      /*
+       * A neutral observer, for the same reason the history suite needs one: this
+       * judges the RIVAL field, and history now deals the player an airline. A
+       * player who never acts but owns aircraft fails in the crisis window, which
+       * ends the game and leaves the field judged at turn 39 — where one carrier
+       * holding every rival route is arithmetic on a tiny number, not consolidation.
+       */
+      let state = newGame(seed, 'LON', undefined, { scenario: 'history', startingOperation: false });
       while (state.turn < state.horizonTurns && !state.gameOver) state = endTurn(state);
       const live = state.carriers.filter((c) => c.bankruptTurn === null && !c.isPlayer).length;
       const rivalRoutes = state.routes.filter((r) => r.carrierId !== state.playerCarrierId).length;

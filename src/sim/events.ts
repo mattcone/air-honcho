@@ -52,6 +52,17 @@ export interface HistoricalEntry {
   readonly year: number;
   readonly quarter: number;
   readonly eventId: string;
+  /**
+   * How long this beat runs, in quarters. Defaults to the card's `maxDuration`.
+   *
+   * A scripted beat used to take the maximum always, which quietly turned the 2001
+   * recession into a THREE-YEAR continuous slump: the card allows 4-12 quarters and
+   * the script took 12 every time, with September 11 stacking on top of the middle
+   * of it. Measured, 70% of games died inside that trench. A real date deserves a
+   * real length, and the deck's random range is not a statement about any particular
+   * recession.
+   */
+  readonly durationQuarters?: number;
 }
 /**
  * The scripted beats of the history scenario. Exported so the content tests can
@@ -73,7 +84,8 @@ export function scheduledEvent(state: GameState): ActiveEffect | null {
     if (turn !== state.turn) continue;
     const card = BY_ID.get(h.eventId);
     if (!card) continue;
-    const duration = card.maxDuration; // scripted events run their full length
+    // The beat's own length when it states one; the card's maximum otherwise.
+    const duration = h.durationQuarters ?? card.maxDuration;
     return {
       source: card.id,
       kind: 'event',

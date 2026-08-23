@@ -151,6 +151,29 @@ describe('event and technology content', () => {
     }
   });
 
+  /*
+   * A scripted beat may state its own length, because the deck's range describes a
+   * KIND of event and a dated one is a particular instance: the 2001 recession runs
+   * six quarters where the card allows four to twelve. Two ways that goes wrong and
+   * neither would fail anything else — a length of zero makes a scripted crisis
+   * expire the quarter it opens (`pruneEffects` keeps only `until > turn`), so the
+   * beat silently never happens; and a length outside the card's own range means the
+   * wrong card is being fired, since the range is what the card claims about itself.
+   */
+  it('gives every dated beat a length its card can actually carry', () => {
+    for (const entry of HISTORICAL) {
+      if (entry.durationQuarters === undefined) continue;
+      const card = EVENTS.find((c) => c.id === entry.eventId)!;
+      const where = `history ${entry.year}Q${entry.quarter} ${entry.eventId}`;
+      expect(Number.isInteger(entry.durationQuarters), `${where}: non-integer length`).toBe(true);
+      expect(entry.durationQuarters, `${where}: would never run`).toBeGreaterThanOrEqual(1);
+      expect(entry.durationQuarters, `${where}: shorter than the card allows`)
+        .toBeGreaterThanOrEqual(card.minDuration);
+      expect(entry.durationQuarters, `${where}: longer than the card allows`)
+        .toBeLessThanOrEqual(card.maxDuration);
+    }
+  });
+
   it('resolves every technology prerequisite', () => {
     for (const node of TECH_NODES) {
       if (!node.requires) continue;

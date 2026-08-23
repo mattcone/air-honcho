@@ -7,7 +7,7 @@
     "startingCash": 120000000,
     "_comment_startingCash": "USD. Enough to lease a couple of narrowbodies and open a small network with runway to spare.",
     "horizonTurns": 100,
-    "_comment_horizonTurns": "100 quarters = 25 years. The victory check runs on the final turn.",
+    "_comment_horizonTurns": "Thirty years of quarters: turn 0 is Q1 1995 and turn 119 is Q4 2024, with the horizon closing on Q1 2025. Cut from 200 (fifty years) on 2026-08-20. The scripted timeline runs 2001-2022, so a fifty-year run spent its whole second half outside its own material — twenty-two years of ordinary play in a scenario sold on 9/11, 2008 and COVID. Ending in 2024 leaves about three years to trade out of the last beat and closes on the present day, which is where a history scenario should hand back.",
     "quartersPerYear": 4,
     "_comment_quartersPerYear": "One turn = one quarter. Display only; the sim counts turns, never dates.",
     "startYear": 2026,
@@ -426,8 +426,24 @@
       "horizonTurns": 100
     },
     "history": {
-      "startYear": 2000,
-      "horizonTurns": 200
+      "startYear": 1995,
+      "horizonTurns": 120,
+      "_comment_horizonTurns": "Fifty years of quarters. Unchanged when the start moved back to 1995, so the run is 1995-2045 rather than 2000-2050: the same length of game, shifted, with the crisis years arriving a quarter of the way in instead of immediately.",
+      "_comment_startingOperation": "See the block below.",
+      "_comment_startYear": "Moved 2000 -> 1995 on 2026-08-20. The scripted timeline is keyed to real years and the aircraft roster to real launch dates, so pulling the start back does not touch either — it simply buys 24 quarters of quiet trading before the 2001 recession. Measured at a 2000 start, EVERY game ended in bankruptcy with death-turn quartiles of 14/14/16: the recession landed on turn 4 and September 11 on turn 6, on an airline that had existed for a year. That is not difficulty, it is a scripted death, and no amount of skill reaches the rest of the timeline through it.",
+      "startingCashMultiplier": 1.5,
+      "_comment_startingCashMultiplier": "History's opening bank, as a multiple of game.startingCash — an established carrier has reserves a startup does not, and reserves are what a demand shock eats. Set to 1.5 on measurement: swept at 1/1.5/2/2.5 over 120 games an arm (two disjoint seed ranges) it measures 12.5%/26.7%/20.0%/30.0% survival, so 1 -> 1.5 is a real step (14.2 points, 2.8 standard errors) and everything above 1.5 is inside the noise (1.5 against 2.5 is 0.6 SE). Some reserves decide a history game; more reserves do not. IMPORTANT for whoever sweeps this next: an EARLIER sweep of the same lever, run before the 2003 SARS card replaced a generic global pandemic, measured 6/4/7/9 survivors and was written up as 'cash is not the lever'. That was wrong, and it was wrong because the levers are superadditive — reserves cannot matter while a sixteen-quarter demand collapse kills everyone regardless of what they are holding. Sweep this against the CURRENT event deck or the answer is meaningless.",
+      "startingOperation": {
+        "_comment_minRoutes": "Raised 2-4 -> 3-6 on 2026-08-22, after a player reported still dying before 2003 twice running. They were right and the summary stat was hiding it: 26.7% survived the full run, but 70% died by the end of 2003, so two straight losses in the crisis was a 49% event — the modal experience, not bad luck. A sturdier inherited airline is the lever that keeps the history honest, since the alternative is shortening real crises until they stop mattering.",
+        "minRoutes": 3,
+        "maxRoutes": 6,
+        "_comment_minFleetAgeQuarters": "How old the inherited fleet is, in quarters, with book value depreciated over exactly that age at fleet.depreciationPerQuarter — so the opening balance sheet is one the game's own rules could have produced. The grant was brand-new metal at full list price until 2026-08-22, which contradicted the copy beside it (an airline trading since the eighties does not own aircraft with zero hours) and handed over a balance sheet worth 3.3x the starting cash. One to three years costs almost nothing to play against: dead-by-2003 measures 40.8% against 40.0% for showroom aircraft, and survival to 2024 44.2% against 48.3%, inside a standard error. One to SIX years is a different game — 50.8% and 34.2% — because maintenance rises with age and a thinner book value borrows less, and that was too much to take back from a scenario players already found brutal.",
+        "minFleetAgeQuarters": 4,
+        "maxFleetAgeQuarters": 12,
+        "minMarketWeekly": 4000,
+        "maxDestinationKm": 9000,
+        "_comment": "History alone deals the player a going concern instead of a startup: a handful of sectors out of the home city with one owned aircraft on each, already flying on turn 1. The point is that the crises of the timeline land on an established airline, which is the fantasy the scenario is selling — you run a carrier THROUGH the 2000s, you do not found one into the teeth of them. Dealt from its own RNG stream so the present-day game is bit-identical to before, and drawn at random rather than optimised: the pool is every destination above minMarketWeekly that a period aircraft can reach, so no two seeds open the same airline. minMarketWeekly keeps the draw off dead city pairs — a granted sector that cannot pay is worse than no grant at all, because it also costs a station every quarter."
+      }
     }
   },
   "difficulty": {
