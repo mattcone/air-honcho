@@ -418,6 +418,39 @@ body {
   accent-color: var(--ink);
 }
 
+/*
+ * The focus ring belongs to the whole option, not to the 13px dot inside it.
+ *
+ * A 2px square outline with an offset, drawn around a round radio, reads as a stray
+ * browser selection box rather than as focus — which is exactly how it was reported.
+ * The card is what a player perceives as the control (the whole thing is a label and
+ * a click target), so the ring goes there. Keyboard focus stays every bit as visible;
+ * it just lands on the object it belongs to.
+ */
+/*
+ * The dialog opens with focus on its own heading, not on the first radio.
+ *
+ * `showModal()` focuses the first focusable descendant, and Firefox treats that
+ * programmatic focus as keyboard focus — so a ring appeared on the era radio the
+ * instant the new-game screen opened, which reads as a browser artefact rather than
+ * as anything the game meant. Focusing the heading is the usual answer: it gives
+ * screen readers the dialog's title to announce, it sits first in the DOM so Tab
+ * still walks forward into the controls, and a heading wants no ring of its own.
+ *
+ * NOT solved with autofocus on the confirm button, which was tried: that button is
+ * LAST in the tab order, and Firefox does not wrap, so every control above it became
+ * unreachable by Tab. Measured before and after — the order is radio, difficulty,
+ * home, confirm, and it has to start at the top of that.
+ */
+.start-title:focus,
+.start-title:focus-visible { outline: none; }
+
+.scenario-option:has(input:focus-visible) {
+  outline: 2px solid var(--livery);
+  outline-offset: 2px;
+}
+.scenario-option input:focus-visible { outline: none; }
+
 .scenario-name {
   font-weight: 600;
   font-size: 12.5px;
