@@ -348,6 +348,59 @@ cannot be tuned honestly against a metric that rewards the wrong thing.
 
 ## Taken
 
+### The map draws land, not countries — 2026-08-29
+
+**What.** `scripts/build-map.mjs` now builds from `world-atlas/land-110m.json` — one
+dissolved landmass — instead of `countries-110m.json`. The map has no national
+borders at all. Output: 177 country features at 158 KB -> 1 land feature of 117
+polygons at 64 KB.
+
+**Why it came up.** A player on Reddit: *"Why is there a border between Crimea and
+the rest of Ukraine?"* Because Natural Earth's default 110m countries file is a **de
+facto** view that assigns Crimea to Russia — point-testing the polygons puts
+Simferopol and Sevastopol inside Russia (id 643), not Ukraine (id 804) — so Crimea is
+one of Russia's twelve polygons and gets its own outline. `.land` is stroked at 0.5px
+in `style.css`, so every country outline in the world was already being drawn in the
+coastline colour. The map had borders; nobody had decided it should.
+
+**The first answer was wrong.** The public reply promised switching to Natural
+Earth's dashed disputed-borders variant. **That does not exist at 110m.** The tier
+ships only `countries`, `countries_lakes`, `sovereignty`, `map_units`, `scale_rank`,
+`tiny_countries`, `boundary_lines_land` and `pacific_groupings`; the point-of-view
+variants (including `_ukr`) and the disputed-areas layers are 10m and 50m only. And
+`world-atlas` is a pre-built package shipping the default file, while this script
+already discarded every property except `name`, so the `fclass_*` fields Natural
+Earth intends for POV rendering never arrived either.
+
+**Crimea was never the only case.** The same file ships separately-outlined Kosovo,
+Somaliland, Palestine, W. Sahara, Taiwan and N. Cyprus, each rendered identically to
+a genuine coastline. Fixing Crimea alone means adjudicating the rest one comment at a
+time.
+
+**Why dissolving is the right answer rather than the easy one.** Nothing in the game
+reads country identity. `map.ts` uses `feature.geometry` and nothing else; the only
+consumer of `properties.name` was this script's own Antarctica filter and some test
+labels. City nationality comes from `cities.json` and is untouched. The borders were
+decoration that made claims, on a game about city pairs. Dissolving answers the whole
+category instead of the instance, suits the seatback-magazine direction better, and
+cuts the payload 59%.
+
+**Rejected.** *Reassign Crimea's polygon to Ukraine* (~10 lines, matches UN GA
+68/262, but keeps every other case and commits the project to ruling on each).
+*Move to a 10m/50m source with the real disputed layer* (does what the reply
+promised, but means dropping `world-atlas`, adding a build-time download, and
+simplifying a much larger source — a lot of machinery for borders nothing uses).
+
+**Antarctica** was filtered by name and is now filtered by latitude: drop any polygon
+lying entirely south of 60S. Measured rather than guessed — thresholds of -55 and -60
+drop exactly the same 8 polygons, none reaching north of -63.3, and the southernmost
+surviving land is Tierra del Fuego at -52.5. The cut is nowhere near anything
+inhabited.
+
+**No sim behaviour changes.** No balance figures move; the map is decoration. Suite
+green, `tests/mapdata.test.ts` rewritten to assert one land feature and a minimum
+latitude above -60 rather than the absence of a feature named Antarctica.
+
 ### History mode was unsurvivable because of one mis-scaled card — 2026-08-20
 
 **What.** Three changes: the history start moved 2000 -> 1995; the player is dealt a

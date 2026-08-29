@@ -24,13 +24,20 @@ function rings(feature: Feature): number[][][] {
 }
 
 describe('generated world geometry', () => {
-  it('has countries with rings', () => {
-    expect(features.length).toBeGreaterThan(150);
-    expect(features.every((f) => rings(f).length > 0)).toBe(true);
+  it('is one dissolved landmass with many rings', () => {
+    // Deliberately a single feature: the map draws land, not countries, so there
+    // are no national borders in the geometry to outline. See build-map.mjs for
+    // why. A regression to the countries source would fail here first.
+    expect(features.length).toBe(1);
+    expect(features[0]?.properties.name).toBe('Land');
+    expect(rings(features[0]!).length).toBeGreaterThan(100);
   });
 
   it('drops Antarctica, which the map clips away anyway', () => {
-    expect(features.some((f) => f.properties.name === 'Antarctica')).toBe(false);
+    // No country names left to filter on, so this asserts the outcome the
+    // latitude filter exists to produce rather than the mechanism.
+    const lats = features.flatMap((f) => rings(f).flat().map(([, lat]) => lat as number));
+    expect(Math.min(...lats)).toBeGreaterThan(-60);
   });
 
   it('projects every ring to finite SVG coordinates', () => {
