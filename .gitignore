@@ -5,3 +5,8 @@ dist/
 
 # Generated at build time by scripts/build-map.mjs
 src/data/world-110m.geo.json
+
+# Local secrets — never commit
+.env
+.env.*
+!.env.example
